@@ -8,7 +8,7 @@ Does the TFT improve out-of-sample RMSE over ARIMA and VAR baselines for 1Q and 
 
 FRED-MD: 1990–2017 for training, 2018-2019 validation, and 2020-2024 for testing.
 
-Features from FRED-MD used at native monthly frequency for the CPI and UNRATE models. For the GDP model, monthly features are aggregated to quarterly frequency by within-quarter mean to match GDPC1's native frequency.
+Features from FRED-MD used at native monthly frequency for the CPI and UNRATE models. For the GDP model, monthly features are aggregated to quarterly frequency by within-quarter mean to match GDPC1's native frequency, it uses only observations that were actually available in real time, unlike interpolating quarterly GDP into monthly slots which would inject future information.
 
 Approximately 100 of the 127 series after dropping those with >5% missing values.
 
