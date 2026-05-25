@@ -2,7 +2,7 @@
 
 Undergraduate research project comparing Temporal Fusion Transformers (TFT) against
 classical econometric baselines (ARIMA, VAR) for short-horizon forecasting of US
-real GDP growth, CPI inflation, and unemployment, using the FRED-MD dataset
+CPI inflation, and unemployment and industrial production growth, using the FRED-MD dataset
 (McCracken & Ng 2016). Stage 1 targets a 6-page short paper and arXiv submission
 by July 5, 2026.
 

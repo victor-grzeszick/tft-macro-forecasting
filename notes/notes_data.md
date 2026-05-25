@@ -50,9 +50,9 @@ modeling.
 
 ## Open decisions
 
-GDPC1 isn't in FRED-MD because FRED-MD is monthly and GDP is quarterly. Decision: keep FRED-MD throughout; for the GDP model, aggregate monthly features to quarterly by within-quarter mean to match GDPC1's frequency. Trade-off: roughly 120 quarterly training observations is tight for TFT, disclosed as a limitation in the paper.
+dropped GDPC1, using INDPRO as real-activity target, single monthly frequency throughout, ~360 monthly training observations
 
 ## Change log
 
-"2026-05-25: Completed W2 S1. Built data pipeline, validated INDPRO and CPIAUCSL
-with ADF."
+2026-05-25: Completed W2 S1. Built data pipeline, validated INDPRO and CPIAUCSL with ADF.
+2026-05-25: Dropped GDP for INDPRO, marignal value but lots of more work
