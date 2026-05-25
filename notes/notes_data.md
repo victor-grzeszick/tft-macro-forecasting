@@ -28,7 +28,7 @@ INDPRO uses code 5, CPIAUCSL uses code 5 (deliberate deviation from McCracken-Ng
 
 ## Validation results
 
-Both CPIAUCSL and INDPRO pass the ADF test decisively well: 
+INDPRO pass the ADF test decisively well, CPIAUCSL passes 5% however fails 1%, known trade - off for choosing code 5: 
 CPIAUCSL:
   ADF statistic: -3.1210
   p-value:       0.025037
