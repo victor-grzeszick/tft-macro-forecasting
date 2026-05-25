@@ -219,4 +219,4 @@ __marimo__/
 .DS_Store
 
 # Copyrighted material — read locally, don't redistribute
-paper/ *.pdf
+paper/*.pdf
