@@ -47,6 +47,7 @@ rather than real-time vintage data — limits real-time forecasting claims.
 VIX, and others don't go back to 1959. 
 3) COVID outliers in 2020-2021 are extreme and will need methodological attention before
 modeling.
+4) The column ACOGNO was dropped due to a lack of consisten data, which could affect the outcome
 
 ## Open decisions
 
@@ -56,3 +57,4 @@ dropped GDPC1, using INDPRO as real-activity target, single monthly frequency th
 
 2026-05-25: Completed W2 S1. Built data pipeline, validated INDPRO and CPIAUCSL with ADF.
 2026-05-25: Dropped GDP for INDPRO, marignal value but lots of more work
+2026-05-25: Dropped ACOGNO due to lack of data
