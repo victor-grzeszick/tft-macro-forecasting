@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
 def extract_targets(split):
     return split["CPIAUCSL"], split["UNRATE"], split["INDPRO"]
@@ -54,6 +55,19 @@ def main():
     plt.figure(figsize=(8, 8))
     heatmap = sns.heatmap(heatmap_dataframe, cmap="coolwarm", center=0)
     plt.show()
+
+    target_train = pd.DataFrame({"CPIAUCSL": y_cpi_train, "UNRATE": y_unrate_train, "INDPRO": y_indpro_train})
+    target_val = pd.DataFrame({"CPIAUCSL": y_cpi_val, "UNRATE": y_unrate_val, "INDPRO": y_indpro_val})
+    target_test = pd.DataFrame({"CPIAUCSL": y_cpi_test, "UNRATE": y_unrate_test, "INDPRO": y_indpro_test})
+
+    os.makedirs("data/processed", exist_ok=True)
+    train.to_parquet("data/processed/X_train.parquet")
+    val.to_parquet("data/processed/X_val.parquet")
+    test.to_parquet("data/processed/X_test.parquet")
+
+    target_train.to_parquet("data/processed/Y_train.parquet")
+    target_val.to_parquet("data/processed/Y_val.parquet")
+    target_test.to_parquet("data/processed/Y_test.parquet")
     
 
 if __name__ == "__main__":

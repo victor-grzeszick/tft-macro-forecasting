@@ -27,6 +27,20 @@ FRED_API_KEY=your_key_here
 
 Get a free FRED key at https://fredaccount.stlouisfed.org/apikeys.
 
+## Data pipeline
+The raw data gets imported via data/raw,
+
+then first gets processed by src/build_dataset.py where the transformation codes are applied and where the date column is set as the index and is finally saved as data/processed/fred_md_transformed.parquet, 
+
+afterwards in (src/validate.py) the ADF test is performed to check if the transformation worked and the data is now stationary
+
+next in src/data_pipeline.py the data/processed/fred_md_transformed.parquet is used to split the data into 3 segments: 
+- 1990-01 till 2017-12 for training (data/processed/X_train.parquet)
+- 2018-01 till 2019-12 for validation and tuning of hyperparameters (data/processed/X_val.parquet)
+- 2020-01 till 2024-12 for testing (saved in data/processed/X_test.parquet)
+ 
+Additionally the target parameters CPIAUCSL, UNRATE and INDPRO are extracted and separated by the same time interval and saved in (data/processed/ Y_train.parquet, Y_val.parquet, Y_test.parquet in the same folder)
+
 ## References
 
 - Lim, Arık, Loeff, Pfister (2021). *Temporal Fusion Transformers for Interpretable Multi-Horizon Time Series Forecasting.* International Journal of Forecasting.
