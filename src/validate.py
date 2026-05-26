@@ -15,6 +15,7 @@ def main():
 
     run_adf(df["CPIAUCSL"], "CPIAUCSL")
     run_adf(df["INDPRO"], "INDPRO")
+    run_adf(df["UNRATE"], "UNRATE")
 
 if __name__ == "__main__":
     main()

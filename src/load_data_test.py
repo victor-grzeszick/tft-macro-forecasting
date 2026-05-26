@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-df = pd.read_csv("data/fred_md.csv")
+df = pd.read_csv("data/raw/fred_md.csv")
 
 print(df.shape)
 
