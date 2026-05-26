@@ -39,7 +39,8 @@ next in src/data_pipeline.py the data/processed/fred_md_transformed.parquet is u
 - 2018-01 till 2019-12 for validation and tuning of hyperparameters (data/processed/X_val.parquet)
 - 2020-01 till 2024-12 for testing (saved in data/processed/X_test.parquet)
  
-Additionally the target parameters CPIAUCSL, UNRATE and INDPRO are extracted and separated by the same time interval and saved in (data/processed/ Y_train.parquet, Y_val.parquet, Y_test.parquet in the same folder)
+Additionally the target parameters CPIAUCSL, UNRATE and INDPRO are extracted and separated by the same time interval and saved in 
+(data/processed/Y_train.parquet, data/processed/Y_val.parquet, data/processed/Y_test.parquet)
 
 ## References
 
