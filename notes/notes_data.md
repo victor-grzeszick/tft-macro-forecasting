@@ -15,7 +15,9 @@ From the 1. row onwards each row follows the same pattern, the first column repr
 build_dataset: it imports the raw data from the data/raw/fred_md.csv - makes the dates the index of each row - then applies the transformation codes for each cell accordingly - exports the table into data/processed/fred_md_transformed.parquet
 
 validate: it validates if in data/processed/fred_md_transformed.parquet the data is indeed stationary by using the ADF test. 
-validate.py lives in src/ and runs ADF on INDPRO, CPIAUCSL and UNRATE specifically
+validate.py lives in src/ and runs ADF on INDPRO, CPIAUCSL, UNRATE, FEDFUNDS and T10YFFM specifically.
+
+data_pipeline:  drops >5%-missing columns, splits into train/val/test (1990–2017 / 2018–2019 / 2020–2024), extracts the three targets (CPIAUCSL, UNRATE, INDPRO), and writes X_/Y_ parquets
 
 ## Transformation codes
 
@@ -28,7 +30,10 @@ INDPRO uses code 5, CPIAUCSL uses code 5 (deliberate deviation from McCracken-Ng
 
 ## Validation results
 
-INDPRO and UNRATE pass the ADF test decisively well, CPIAUCSL passes 5% however fails 1%, known trade-off for choosing code 5: 
+INDPRO and UNRATE pass the ADF test decisively well,
+FEDFUNDS passes clearly, though less extreme than INDPRO/UNRATE
+CPIAUCSL passes 5%/fails 1% as the code-5 trade-off; T10YFFM passes 5% marginally because it's a mean-reverting spread, unrelated to code 5:
+
 CPIAUCSL:
   ADF statistic: -3.1210
   p-value:       0.025037
@@ -43,6 +48,16 @@ UNRATE:
   ADF statistic: -15.5832
   p-value:       0.000000
   critical 5%:   -2.8652
+
+FEDFUNDS:
+  ADF statistic: -4.5576
+  p-value:       0.000155
+  critical 5%:   -2.8706
+
+T10YFFM:
+  ADF statistic: -2.8747
+  p-value:       0.048367
+  critical 5%:   -2.8703
 
 ## Known limitations
 
@@ -64,3 +79,4 @@ dropped GDPC1, using INDPRO as real-activity target, single monthly frequency th
 2026-05-25: Dropped GDP for INDPRO, marignal value but lots of more work
 2026-05-25: Dropped ACOGNO due to lack of data
 2026-05-26: Added UNRATE to the validation and confirmed via heatmap and plotting that transformation worked
+2026-05-28: Added FEDFUNDS and T10YFFM to the validation and added data_pipeline

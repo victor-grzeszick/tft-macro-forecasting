@@ -29,7 +29,7 @@ For the CPI, UNRATE and INDPRO models (monthly), h=1Q means three months ahead a
 **Baselines:**
 
 - **RW**: Random walk, forecast(t+h) = y(t).
-- **VAR(p)**: a small system of 5 variables — the three targets plus FEDFUNDS and T10Y3M — with lag order p selected by BIC on the training set.
+- **VAR(p)**: a small system of 5 variables — the three targets plus FEDFUNDS and T10YFFM — with lag order p selected by BIC on the training set.
 - **ARIMA(p,d,q)**: orders chosen per target by `auto_arima` minimizing AIC on the training set.
 
 **Model:** TFT (Lim et al. 2021), implemented via `pytorch-forecasting`. Encoder length 24 months (monthly models). Hyperparameters (hidden size, dropout, learning rate, attention heads) selected by random search on the validation set. Quantile outputs at 0.1, 0.5, 0.9; point forecasts are the 0.5 quantile.

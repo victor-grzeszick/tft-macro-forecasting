@@ -17,5 +17,10 @@ def main():
     run_adf(df["INDPRO"], "INDPRO")
     run_adf(df["UNRATE"], "UNRATE")
 
+
+    system_train = df.loc["1990-01":"2017-12", ["CPIAUCSL","UNRATE","INDPRO","FEDFUNDS","T10YFFM"]]
+    run_adf(system_train["FEDFUNDS"], "FEDFUNDS")   
+    run_adf(system_train["T10YFFM"], "T10YFFM")
+
 if __name__ == "__main__":
     main()

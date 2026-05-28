@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import pmdarima
 import os
+from statsmodels.tsa.api import VAR as var
 
 def rw_forecast(y_history, h):
     return y_history.shift(h)
@@ -39,9 +40,34 @@ def arima_rolling_forecast_and_evaluation(name, train_series, val_series, h):
     common = pred_series.index.intersection(val_series.index)
     return pred_series[common], evaluate(pred_series[common], val_series[common])
 
+def var_rolling_forecast_and_evaluation(name, df_train, df_val, h):
+
+    full = pd.concat([df_train, df_val])
+    cutoff = len(df_train)
+    col = full.columns.get_loc(name)
+
+    preds = {}
+    for i in range(len(df_val)):
+        history = full.iloc[:cutoff]
+        fitted = var(history).fit(1)
+        target_pos = cutoff + h - 1
+        if target_pos < len(full):
+            fc = fitted.forecast(history.values[-1:], steps=h)
+            preds[full.index[target_pos]] = fc[-1, col]
+        cutoff += 1
+    
+    pred_series = pd.Series(preds)
+    common = pred_series.index.intersection(df_val.index)
+    return pred_series[common], evaluate(pred_series[common], df_val[name][common])
+
 def main():
     df_train = pd.read_parquet("data/processed/Y_train.parquet")
     df_val = pd.read_parquet("data/processed/Y_val.parquet")
+    system_train = pd.read_parquet("data/processed/X_train.parquet").loc[:, ["CPIAUCSL","UNRATE","INDPRO","FEDFUNDS","T10YFFM"]]
+    system_val = pd.read_parquet("data/processed/X_val.parquet").loc[:, ["CPIAUCSL","UNRATE","INDPRO","FEDFUNDS","T10YFFM"]]
+
+    system_train.index.freq = "MS"
+    system_val.index.freq = "MS"
 
     df = pd.concat([df_train, df_val])
     
@@ -60,6 +86,13 @@ def main():
             _, error = arima_rolling_forecast_and_evaluation(name, df, df_val, h)
             mae, rmse = error
             results.append({"target": name, "horizon": h, "MAE": mae, "RMSE": rmse, "model": "ARIMA"})
+
+    for name in targets:
+        for h in horizons:
+            _, error = var_rolling_forecast_and_evaluation(name, system_train, system_val, h)
+            mae, rmse = error
+            results.append({"target": name, "horizon": h, "MAE": mae, "RMSE": rmse, "model": "VAR"})
+
 
     results_df = pd.DataFrame(results)
     print(results_df)
