@@ -2,11 +2,11 @@
 
 ## Data source
 
-The data is the 'current.csv' from the website https://research.stlouisfed.org/econ/mccracken/fred-databases/ downloaded on 2026-05-10
+The data is 'current.csv' from https://research.stlouisfed.org/econ/mccracken/fred-databases/, downloaded 2026-05-10 and saved as data/raw/fred_md.csv.
 
 The raw shape is 808 rows × 127 columns, the data is monthly, the time span runs from January 1959 to (currently) March 2026, and FRED-MD itself is "large, monthly frequency, macroeconomic database" of about 126 US time series, maintained by Michael McCracken at the St. Louis Fed and described in McCracken and Ng (2016).
 
-It's a big table, with in which the index of the colums are the variable name, e.g RPI, in the 0. row are the transformation codes, used to make the data stationary
+It's a big table, with in which the index of the columns are the variable name, e.g RPI, in the 0. row are the transformation codes, used to make the data stationary
 From the 1. row onwards each row follows the same pattern, the first column represents the month and afterwards each cell gives the data from the given month for the given variable indexed for its row
 
 
@@ -65,8 +65,7 @@ T10YFFM:
 rather than real-time vintage data — limits real-time forecasting claims.
 2) Different series have different start dates — consumer sentiment,
 VIX, and others don't go back to 1959. 
-3) COVID outliers in 2020-2021 are extreme and will need methodological attention before
-modeling.
+3) COVID outliers (2020–2021) fall inside the test set (2020–2024). Test RMSE will be heavily influenced by a few extreme months, so final results must be interpreted with this in mind
 4) The column ACOGNO was dropped due to a lack of consistent data, which could affect the outcome
 
 ## Open decisions
@@ -76,7 +75,7 @@ dropped GDPC1, using INDPRO as real-activity target, single monthly frequency th
 ## Change log
 
 2026-05-25: Completed W2 S1. Built data pipeline, validated INDPRO and CPIAUCSL with ADF.
-2026-05-25: Dropped GDP for INDPRO, marignal value but lots of more work
+2026-05-25: Dropped GDP for INDPRO, marginal value but lots of more work
 2026-05-25: Dropped ACOGNO due to lack of data
 2026-05-26: Added UNRATE to the validation and confirmed via heatmap and plotting that transformation worked
 2026-05-28: Added FEDFUNDS and T10YFFM to the validation and added data_pipeline

@@ -7,19 +7,13 @@ from statsmodels.tsa.api import VAR as var
 def rw_forecast(y_history, h):
     return y_history.shift(h)
 
-def evaluate(y_history, y_val):
-    return (abs(y_history - y_val).mean(), ((y_history - y_val)**2).mean()**0.5)
-
-def rw_forcast_and_evaluation(name, h, df, df_val, date_start, date_end):
+def rw_forecast_rolling(name, h, df, date_start, date_end):
     df_ = rw_forecast(df, h)
     df_prediction = df_.loc[date_start: date_end, name]
-    df_val_new = df_val[name]
 
-    error = evaluate(df_prediction, df_val_new)
+    return df_prediction
 
-    return df_prediction, error
-
-def arima_rolling_forecast_and_evaluation(name, train_series, val_series, h):
+def arima_rolling_forecast(name, train_series, val_series, h):
     train_series = train_series[name]
     val_series = val_series[name]
     model = pmdarima.auto_arima(train_series, d=0, seasonal=False)
@@ -38,9 +32,9 @@ def arima_rolling_forecast_and_evaluation(name, train_series, val_series, h):
 
     pred_series = pd.Series(preds)
     common = pred_series.index.intersection(val_series.index)
-    return pred_series[common], evaluate(pred_series[common], val_series[common])
+    return pred_series[common]
 
-def var_rolling_forecast_and_evaluation(name, df_train, df_val, h):
+def var_rolling_forecast(name, df_train, df_val, h):
 
     full = pd.concat([df_train, df_val])
     cutoff = len(df_train)
@@ -58,7 +52,7 @@ def var_rolling_forecast_and_evaluation(name, df_train, df_val, h):
     
     pred_series = pd.Series(preds)
     common = pred_series.index.intersection(df_val.index)
-    return pred_series[common], evaluate(pred_series[common], df_val[name][common])
+    return pred_series[common]
 
 def main():
     df_train = pd.read_parquet("data/processed/Y_train.parquet")
@@ -74,31 +68,27 @@ def main():
     targets = ["CPIAUCSL", "UNRATE", "INDPRO"]
     horizons = [3, 12]
 
-    results = []
-    for name in targets:
-        for h in horizons:
-            _, error = rw_forcast_and_evaluation(name, h, df, df_val, "2018-01", "2019-12")
-            mae, rmse = error
-            results.append({"target": name, "horizon": h, "MAE": mae, "RMSE": rmse, "model": "RW"})
+    predictions = []
 
     for name in targets:
         for h in horizons:
-            _, error = arima_rolling_forecast_and_evaluation(name, df, df_val, h)
-            mae, rmse = error
-            results.append({"target": name, "horizon": h, "MAE": mae, "RMSE": rmse, "model": "ARIMA"})
+            pred = rw_forecast_rolling(name, h, df, "2018-01", "2019-12")
+            predictions.append({"target": name, "horizon": h,"model": "RW", "prediction": pred})
 
     for name in targets:
         for h in horizons:
-            _, error = var_rolling_forecast_and_evaluation(name, system_train, system_val, h)
-            mae, rmse = error
-            results.append({"target": name, "horizon": h, "MAE": mae, "RMSE": rmse, "model": "VAR"})
+            pred = arima_rolling_forecast(name, df, df_val, h)
+            predictions.append({"target": name, "horizon": h,"model": "ARIMA", "prediction": pred})
 
+    for name in targets:
+        for h in horizons:
+            pred = var_rolling_forecast(name, system_train, system_val, h)
+            predictions.append({"target": name, "horizon": h,"model": "VAR", "prediction": pred})
 
-    results_df = pd.DataFrame(results)
-    print(results_df)
+    predictions_df = pd.DataFrame(predictions)
 
     os.makedirs("data/processed", exist_ok=True)
-    results_df.to_csv("data/processed/Baseline_Results.csv", index=False)
+    predictions_df.to_pickle("data/processed/predictions_unalligned.pkl")
 
 
 if __name__ == "__main__":
