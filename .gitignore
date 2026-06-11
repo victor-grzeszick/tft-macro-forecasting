@@ -220,3 +220,8 @@ __marimo__/
 
 # Copyrighted material — read locally, don't redistribute
 paper/*.pdf
+
+# Project run artifacts
+lightning_logs/
+models/
+data/processed/

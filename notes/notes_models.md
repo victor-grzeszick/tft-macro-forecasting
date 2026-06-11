@@ -7,6 +7,7 @@
 - align_results.py — aligned RMSE/MAE → Baseline_Results.csv
 - dm_test.py — Diebold-Mariano tests
 - plot_baselines.py — predicted-vs-actual figures → figures/
+- pytorchDummy.py — W4 toy: TFT on synthetic sine, full pipeline test
 
 ## Baselines
 
@@ -90,8 +91,21 @@ Actual, RW, ARIMA, VAR on shared axes. Visual sanity check — confirms the
 rolling models track smoothly while RW chases noise, and that all models
 struggle at these short horizons.
 
+## Toy run 
+
+Sine + noise (σ=0.1), 200 points, encoder 24 / h=3, hidden_size 16 (15.5k params).
+Findings: 10 epochs underfit (val 0.32); ~300 epochs near the noise floor
+(val 0.049); 400 epochs overfit onset — train falls, val rises to 0.059 →
+EarlyStopping mandatory for FRED runs. Forecasts track flanks well, miss
+turning points — expect the same on macro series. Checkpoint workflow
+established: auto-save to lightning_logs/, reload via load_from_checkpoint;
+explicit saves to models/ for final runs.
+
 ## Change log
 
 2026-05-26: Completed W3 RW + ARIMA baselines. Rolling-update ARIMA, validation metrics, saved Baseline_Results.csv.
 2026-05-28: Completed W3 S2. VAR baseline (5-var, p=1 BIC, scheme B), validation metrics appended to Baseline_Results.csv.
 2026-06-10: W3 final. DM test (lag-(h−1) corrected) vs ARIMA/VAR/RW; split baseline.py into generation + evaluation_utils + align_results + dm_test; shared align(); predicted-vs-actual plots → figures/.
+2026-06-11: W4 done. pytorch-forecasting toy on sine; dataset→loaders→train→
+checkpoint→reload→predict→plot verified end-to-end; under/overfit boundary
+observed; gitignore + README replication section added.
