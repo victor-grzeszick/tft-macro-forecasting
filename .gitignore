@@ -223,5 +223,4 @@ paper/*.pdf
 
 # Project run artifacts
 lightning_logs/
-models/
 data/processed/

@@ -26,12 +26,13 @@ def main():
     if(case_switch == 1):
         tft = TemporalFusionTransformer.from_dataset(train_ds, hidden_size=16, learning_rate=0.01, loss=QuantileLoss())
 
-        trainer = Trainer(max_epochs=300)
+        trainer = Trainer(max_epochs=150)
 
         trainer.fit(model=tft, train_dataloaders=train_dl, val_dataloaders=val_dl)
+        trainer.save_checkpoint("models/tft_toy.ckpt")
 
     elif(case_switch == 0):
-        tft = TemporalFusionTransformer.load_from_checkpoint("lightning_logs/version_7/checkpoints/epoch=299-step=600.ckpt")
+        tft = TemporalFusionTransformer.load_from_checkpoint("models/tft_toy.ckpt")
 
     prediction = tft.predict(val_dl, mode="raw", return_x=True)
 

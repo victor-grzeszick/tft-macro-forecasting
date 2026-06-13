@@ -8,6 +8,8 @@
 - dm_test.py — Diebold-Mariano tests
 - plot_baselines.py — predicted-vs-actual figures → figures/
 - pytorchDummy.py — W4 toy: TFT on synthetic sine, full pipeline test
+- build_data_sets.py — wide→long prep, build_one_dataset(df_train, df_val, h, target) → (train_ds, val_ds)
+- trainer.py — trains/loads one TFT per target×horizon; checkpoint → models/, plot → figures/
 
 ## Baselines
 
@@ -117,6 +119,19 @@ inherits train config + train-fit normalization (no leakage), encoders
 reach back into late-2017. Train examples 310/301 (h=3/12), val 22/13 —
 val counts match the baseline aligned windows.
 
+## First FRED TFT run
+
+CPIAUCSL h=3, default config (hidden_size 16, lr 0.03, QuantileLoss), seed 42.
+EarlyStopping(patience=15) → stopped epoch 22. Trains clean, no NaN.
+Forecast is flat near the series mean with wide quantile bands covering the
+actuals — consistent with short-horizon monthly inflation being hard to
+forecast (Stock-Watson 2007), and with the baselines (CPI was already
+borderline ARIMA-vs-RW). Not undertraining: converged by ~epoch 7.
+val_loss is pinball, not RMSE — not comparable to Baseline_Results.csv;
+the RMSE-vs-baseline comparison via predict(default)→align()→evaluate()
+is deferred to W6.
+Checkpoint: models/tft_CPIAUCSL_h3.ckpt.
+
 ## To Do
 
 TODO (before W5S2 training): confirm feature normalization — TimeSeriesDataSet
@@ -133,3 +148,5 @@ since features span percent to index-point ranges.
 checkpoint→reload→predict→plot verified end-to-end; under/overfit boundary
 observed; gitignore + README replication section added.
 2026-06-13: W5S1. FRED-MD wide→long, 6 per-target×horizon TimeSeriesDataSets (train + val via from_dataset, min_prediction_idx=336); prepare() helper.
+2026-06-13: W5S2. First FRED TFT (CPIAUCSL h=3, default config) end-to-end;
+trainer.py + build_data_loaders.py; save/load checkpoint workflow; W5 gate passed.
