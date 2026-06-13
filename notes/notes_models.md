@@ -101,6 +101,29 @@ turning points — expect the same on macro series. Checkpoint workflow
 established: auto-save to lightning_logs/, reload via load_from_checkpoint;
 explicit saves to models/ for final runs.
 
+## TFT data setup 
+
+Wide X_/Y_ parquets → long format: integer time_idx replaces the date index,
+single dummy group_id ("series" = "macro"), one TimeSeriesDataSet per
+target × horizon (6 total), per-target modelling per the Stage-1 decision.
+
+Encoder length 24 (fixed a priori, ~2yr context, standard in the macro
+literature — not tuned, to limit researcher degrees of freedom). All 125
+FRED columns are time_varying_unknown_reals (incl. the target's own past);
+time_idx is the only known real for now (calendar dummies pending).
+
+Val datasets via from_dataset(train_ds, df_full, min_prediction_idx=336):
+inherits train config + train-fit normalization (no leakage), encoders
+reach back into late-2017. Train examples 310/301 (h=3/12), val 22/13 —
+val counts match the baseline aligned windows.
+
+## To Do
+
+TODO (before W5S2 training): confirm feature normalization — TimeSeriesDataSet
+auto-scales the target, but verify the 125 input reals are also scaled and
+that all scalers are fit on train only (default GroupNormalizer behaviour),
+since features span percent to index-point ranges.
+
 ## Change log
 
 2026-05-26: Completed W3 RW + ARIMA baselines. Rolling-update ARIMA, validation metrics, saved Baseline_Results.csv.
@@ -109,3 +132,4 @@ explicit saves to models/ for final runs.
 2026-06-11: W4 done. pytorch-forecasting toy on sine; dataset→loaders→train→
 checkpoint→reload→predict→plot verified end-to-end; under/overfit boundary
 observed; gitignore + README replication section added.
+2026-06-13: W5S1. FRED-MD wide→long, 6 per-target×horizon TimeSeriesDataSets (train + val via from_dataset, min_prediction_idx=336); prepare() helper.
