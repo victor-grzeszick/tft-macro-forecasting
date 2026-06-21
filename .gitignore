@@ -224,3 +224,4 @@ paper/*.pdf
 # Project run artifacts
 lightning_logs/
 data/processed/
+src/test.py

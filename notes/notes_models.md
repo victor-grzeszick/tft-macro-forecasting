@@ -121,6 +121,8 @@ inherits train config + train-fit normalization (no leakage), encoders
 reach back into late-2017. Train examples 310/301 (h=3/12), val 22/13 —
 val counts match the baseline aligned windows.
 
+Verified: all 125 inputs StandardScaler-scaled, target EncoderNormalizer, scalers train-fit and inherited by val via from_dataset (no leakage)
+
 ## First FRED TFT run
 
 CPIAUCSL h=3, default config (hidden_size 16, lr 0.03, QuantileLoss), seed 42.
@@ -134,11 +136,24 @@ Checkpoint: models/tft_CPIAUCSL_h3.ckpt.
 
 TFT hits ARIMA-level error via the flat forecast → short-horizon CPI is near-unforecastable, all methods collapse to the mean; not a genuine match.
 
-VSN collapsed ~all weight (21.9997/22) onto HOUSTNE, which shows, that althouhg its not a leakage, the tft chooses something almost meaningless, which is just mostly a constant.
+VSN collapsed ~all weight (21.9997/22) onto HOUSTNE, which shows, that although its not a leakage, the tft chooses something almost meaningless, which is just mostly a constant.
+
+## Tuning
+
+Architecture tuned once on UNRATE h=3, then frozen across all six models; learning rate found per-model via a manual sweep. That design limits researcher degrees of freedom (same logic as fixing encoder length a priori), and only let lr vary because it's optimization-specific, not capacity.
+Why the manual lr sweep instead of lr_find: lr_find kept crashing on the torch 2.6 weights_only checkpoint-restore (EncoderNormalizer/numpy whack-a-mole), so I picked lr by manual trial, narrowing to ~0.023.
+
+The architecture result: grid over hidden_size {8,16,32} × dropout {0.1,0.15,0.2}, all at fixed lr on UNRATE h=3, selected by val_loss → (8, 0.1). 
+
+The model will be trained with those parameters and not with those from the first run.
+
+!Critically! It won probably because val_loss was nearly flat across the whole grid (~0.048–0.052), so the smallest model won on parsimony, not because it meaningfully beat the others.
+The UNRATE h=3 number (MAE ~0.097 / RMSE ~0.113) and the third single-variable VSN collapse (MANEMP) — three targets, three collapses now.
+It's persisting exactly as predicted for the flat regime.
 
 ## To Do
 
--
+-Perhaps see if a new training of hyperparameters for each variable is feasable if it only takes more compute/time
 
 ## Change log
 
@@ -149,3 +164,4 @@ VSN collapsed ~all weight (21.9997/22) onto HOUSTNE, which shows, that althouhg 
 2026-06-13  W5S1 — FRED-MD wide→long; 6 per-target×horizon TimeSeriesDataSets (train + val via from_dataset, min_prediction_idx=336); prepare() helper.
 2026-06-13  W5S2 — First FRED TFT (CPIAUCSL h=3, default config) end-to-end; trainer.py + build_data_sets.py; save/load checkpoint workflow; W5 gate passed.
 2026-06-20  W5S3 — TFT RMSE/MAE vs baselines (CPIAUCSL h=3 ≈ ARIMA); variable-importance smoke test (VSN collapsed onto HOUSTNE — degenerate, not leakage); refactored trainer.py into load_or_train / eval_vs_baseline / top_k_importance / save_plot with target/horizon-keyed checkpoint + figure paths.
+2026-06-21  W6S1 — hyperparameter tuning: architecture frozen at (hidden_size 8, dropout 0.1) via UNRATE h=3 grid; per-model lr sweep (~0.0234); lr_find abandoned (torch 2.6 weights_only); grid near-flat, smallest model won on parsimony.
