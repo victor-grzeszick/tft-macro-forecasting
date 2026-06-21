@@ -57,6 +57,8 @@ data/processed/Baseline_Results.csv.
 ARIMA and VAR both beat RW on every target-horizon combo (AR-on-stationary-series sanity check passes).
 VAR≈ARIMA with no clear winner, so the strongest classical baseline is chosen per-target for the DM test against TFT.
 
+TFT CPIAUCSL h=3 ≈ 0.0014 RMSE / 0.0012 MAE, sitting right on tuned ARIMA (0.00137), beating VAR and RW
+
 ## Alignment
 
 The Random Walk, unlike ARIMA and VAR, can reach back into the training
@@ -128,25 +130,22 @@ actuals — consistent with short-horizon monthly inflation being hard to
 forecast (Stock-Watson 2007), and with the baselines (CPI was already
 borderline ARIMA-vs-RW). Not undertraining: converged by ~epoch 7.
 val_loss is pinball, not RMSE — not comparable to Baseline_Results.csv;
-the RMSE-vs-baseline comparison via predict(default)→align()→evaluate()
-is deferred to W6.
 Checkpoint: models/tft_CPIAUCSL_h3.ckpt.
+
+TFT hits ARIMA-level error via the flat forecast → short-horizon CPI is near-unforecastable, all methods collapse to the mean; not a genuine match.
+
+VSN collapsed ~all weight (21.9997/22) onto HOUSTNE, which shows, that althouhg its not a leakage, the tft chooses something almost meaningless, which is just mostly a constant.
 
 ## To Do
 
-TODO (before W5S2 training): confirm feature normalization — TimeSeriesDataSet
-auto-scales the target, but verify the 125 input reals are also scaled and
-that all scalers are fit on train only (default GroupNormalizer behaviour),
-since features span percent to index-point ranges.
+-
 
 ## Change log
 
-2026-05-26: Completed W3 RW + ARIMA baselines. Rolling-update ARIMA, validation metrics, saved Baseline_Results.csv.
-2026-05-28: Completed W3 S2. VAR baseline (5-var, p=1 BIC, scheme B), validation metrics appended to Baseline_Results.csv.
-2026-06-10: W3 final. DM test (lag-(h−1) corrected) vs ARIMA/VAR/RW; split baseline.py into generation + evaluation_utils + align_results + dm_test; shared align(); predicted-vs-actual plots → figures/.
-2026-06-11: W4 done. pytorch-forecasting toy on sine; dataset→loaders→train→
-checkpoint→reload→predict→plot verified end-to-end; under/overfit boundary
-observed; gitignore + README replication section added.
-2026-06-13: W5S1. FRED-MD wide→long, 6 per-target×horizon TimeSeriesDataSets (train + val via from_dataset, min_prediction_idx=336); prepare() helper.
-2026-06-13: W5S2. First FRED TFT (CPIAUCSL h=3, default config) end-to-end;
-trainer.py + build_data_loaders.py; save/load checkpoint workflow; W5 gate passed.
+2026-05-26  W3S1 — RW + ARIMA baselines: rolling-update ARIMA, validation metrics, Baseline_Results.csv saved.
+2026-05-28  W3S2 — VAR baseline (5-var, p=1 BIC, scheme B); validation metrics appended to Baseline_Results.csv.
+2026-06-10  W3S3 — DM test (lag-(h−1) corrected) vs ARIMA/VAR/RW; split baseline.py into generation + evaluation_utils + align_results + dm_test; shared align(); predicted-vs-actual plots → figures/.
+2026-06-11  W4   — pytorch-forecasting toy on sine; dataset→loader→train→checkpoint→reload→predict→plot verified end-to-end; under/overfit boundary located; .gitignore + README replication section added.
+2026-06-13  W5S1 — FRED-MD wide→long; 6 per-target×horizon TimeSeriesDataSets (train + val via from_dataset, min_prediction_idx=336); prepare() helper.
+2026-06-13  W5S2 — First FRED TFT (CPIAUCSL h=3, default config) end-to-end; trainer.py + build_data_sets.py; save/load checkpoint workflow; W5 gate passed.
+2026-06-20  W5S3 — TFT RMSE/MAE vs baselines (CPIAUCSL h=3 ≈ ARIMA); variable-importance smoke test (VSN collapsed onto HOUSTNE — degenerate, not leakage); refactored trainer.py into load_or_train / eval_vs_baseline / top_k_importance / save_plot with target/horizon-keyed checkpoint + figure paths.
