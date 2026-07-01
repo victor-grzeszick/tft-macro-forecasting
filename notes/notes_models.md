@@ -88,6 +88,9 @@ estimate degenerates), deferred to the test set. Validation window is short
 (low power) and 9 simultaneous tests raise multiple-comparison risk, so all
 results are preliminary, to be confirmed on the test set.
 
+DM on TFT: DM degenerate — h=3 DM stats computed but uninformative: corrected_variance ~0 (2e-13 to 6e-6) because TFT and baselines produce nearly identical flat forecasts, so error differences barely vary. Division by ~0 inflates |DM|; the −2.14/−2.15 are artifacts, not real significance. Report as a limitation: on near-unforecastable flat series, DM breaks down.
+
+
 ## Figures
 
 figures/ holds one predicted-vs-actual plot per target × horizon (6 total):
@@ -151,6 +154,10 @@ The model will be trained with those parameters and not with those from the firs
 The UNRATE h=3 number (MAE ~0.097 / RMSE ~0.113) and the third single-variable VSN collapse (MANEMP) — three targets, three collapses now.
 It's persisting exactly as predicted for the flat regime.
 
+## TFT Results
+Six-model results — TFT vs best baseline (RMSE): 3 wins, 3 losses, all margins ≤10%. Competitive, doesn't systematically beat tuned ARIMA/VAR.
+VSN collapse universal — all six models put weight = window-count (22 at h=3, 13 at h=12) on a single variable, second place ~10,000× smaller. Arbitrary variables (DMANEMP for CPI, etc.), no economic coherence. Softmax saturation under flat-forecast objective, not leakage.
+
 ## To Do
 
 -Perhaps see if a new training of hyperparameters for each variable is feasable if it only takes more compute/time
@@ -165,3 +172,4 @@ It's persisting exactly as predicted for the flat regime.
 2026-06-13  W5S2 — First FRED TFT (CPIAUCSL h=3, default config) end-to-end; trainer.py + build_data_sets.py; save/load checkpoint workflow; W5 gate passed.
 2026-06-20  W5S3 — TFT RMSE/MAE vs baselines (CPIAUCSL h=3 ≈ ARIMA); variable-importance smoke test (VSN collapsed onto HOUSTNE — degenerate, not leakage); refactored trainer.py into load_or_train / eval_vs_baseline / top_k_importance / save_plot with target/horizon-keyed checkpoint + figure paths.
 2026-06-21  W6S1 — hyperparameter tuning: architecture frozen at (hidden_size 8, dropout 0.1) via UNRATE h=3 grid; per-model lr sweep (~0.0234); lr_find abandoned (torch 2.6 weights_only); grid near-flat, smallest model won on parsimony.
+2026-06-21  W6S3 — six-model TFT results (3 win/3 loss, all ≤10%); DM vs best baseline degenerate (corrected_variance ~0, forecasts flat/identical → uninformative); VSN collapse universal across all six.

@@ -9,10 +9,10 @@ from build_data_sets import build_one_dataset
 from evaluation_utils import evaluate
 
 
-def load_or_train(train_ds, train_dl, val_dl, target, horizon, learning_rate, case_switch):
+def load_or_train(train_ds, train_dl, val_dl, target, horizon, learning_rate, size, case_switch):
     ckpt_path = f"models/tft_{target}_h{horizon}.ckpt"
     if case_switch == 1:
-        tft = TemporalFusionTransformer.from_dataset(train_ds, hidden_size=16, learning_rate=learning_rate, loss=QuantileLoss())
+        tft = TemporalFusionTransformer.from_dataset(train_ds, hidden_size=size, learning_rate=learning_rate, loss=QuantileLoss())
         early_stop = EarlyStopping(monitor="val_loss", patience=15)
         trainer = Trainer(max_epochs=500, callbacks=[early_stop])
         trainer.fit(model=tft, train_dataloaders=train_dl, val_dataloaders=val_dl)
@@ -30,6 +30,9 @@ def eval_vs_baseline(tft, val_dl, horizon):
     mae, rmse = evaluate(output, y)
     return mae.item(), rmse.item()
 
+def predict_series(tft, val_dl, horizon, date_index):
+    out = tft.predict(val_dl, mode="prediction")[:, horizon - 1].cpu().numpy()
+    return pd.Series(out, index=date_index)
 
 def top_k_importance(tft, val_dl, k):
     prediction = tft.predict(val_dl, mode="raw", return_x=True)
@@ -77,32 +80,53 @@ def main():
     seed_everything(42)
     df_train = pd.read_parquet("data/processed/X_train.parquet")
     df_val = pd.read_parquet("data/processed/X_val.parquet")
+    os.makedirs("data/processed", exist_ok=True)
 
-    case_switch = 1  ## 0 = load, 1 = train
+    case_switch = 0  ## 0 = load, 1 = train
 
-    target = "UNRATE"
-    horizon = 3
+    targets = ["CPIAUCSL", "UNRATE", "INDPRO"]
+    horizons = [3, 12]
+    result = []
+    baseline = []
+    prediction = []
 
-    train_ds, val_ds = build_one_dataset(df_train, df_val, horizon, target)
-    train_dl = train_ds.to_dataloader(train=True, batch_size=64)
-    val_dl = val_ds.to_dataloader(train=False, batch_size=64)
+    for target in targets:
+        for horizon in horizons:
+            preds = pd.read_pickle("data/processed/predictions_unalligned.pkl")
 
-    hidden_size, dropout_rate, learning_rate = tune_architecture(train_ds, train_dl, val_dl)
-    print("###########")
-    print(hidden_size, dropout_rate, learning_rate)
-    print("###########")
+            mask = (preds["target"] == target) & (preds["horizon"] == horizon) & (preds["model"] == "ARIMA")
+            date_index = preds[mask]["prediction"].iloc[0].index
 
-    tft = load_or_train(train_ds, train_dl, val_dl, target, horizon, learning_rate, case_switch)
 
-    save_plot(tft, val_dl, target, horizon)
+            train_ds, val_ds = build_one_dataset(df_train, df_val, horizon, target)
+            train_dl = train_ds.to_dataloader(train=True, batch_size=64)
+            val_dl = val_ds.to_dataloader(train=False, batch_size=64)
 
-    mae, rmse = eval_vs_baseline(tft, val_dl, horizon)
-    print("MAE:", mae, "RMSE:", rmse)
+            hidden_size, dropout_rate, learning_rate = 8, 0.1, 0.0234
 
-    top10 = top_k_importance(tft, val_dl, 10)
-    for v in top10:
-        print(v)
+            tft = load_or_train(train_ds, train_dl, val_dl, target, horizon, learning_rate, hidden_size, case_switch)
 
+            save_plot(tft, val_dl, target, horizon)
+
+            mae, rmse = eval_vs_baseline(tft, val_dl, horizon)
+            print("Target:", target, "Horizon", horizon, "MAE:", mae, "RMSE:", rmse)
+
+            top10 = top_k_importance(tft, val_dl, 10)
+            
+            result.append({"Target: ": target, "Horizon: " : horizon, "Learning_rate: ": learning_rate, "Hiddensize: ": hidden_size, "Dropout_rate: ": dropout_rate, "MAE: ": mae, "RMSE: ": rmse, "Top10: ": top10})
+            baseline.append({"target": target, "horizon" : horizon, "MAE": mae, "RMSE": rmse, "model": "TFT"})
+            prediction.append({"target": target, "horizon": horizon, "model": "TFT", "prediction": predict_series(tft, val_dl, horizon, date_index)})
+
+    final = pd.DataFrame(baseline)
+    results = pd.DataFrame(result)
+    pred = pd.DataFrame(prediction)
+    pred.to_pickle("data/processed/predictions_unalligned_tft.pkl")
+    old = pd.read_csv("data/processed/Baseline_Results.csv")
+    combined = pd.concat([old, final], ignore_index=True)
+    combined.to_csv("data/processed/Baseline_Results_with_tft.csv", index=False)
+    results.to_csv("data/processed/Full_results.csv", index=False)
+
+            
 
 if __name__ == "__main__":
     main()

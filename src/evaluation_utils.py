@@ -11,6 +11,7 @@ def align(name, h, df_val, predictions_df):
     rw = by_model['RW']
     arima = by_model['ARIMA']
     varr = by_model['VAR']
+    tft = by_model['TFT']
 
     common = rw.index.intersection(arima.index).intersection(varr.index)
 
@@ -20,4 +21,4 @@ def align(name, h, df_val, predictions_df):
 
     actual = df_val[name].loc[common]
 
-    return actual, rw, arima, varr
+    return actual, rw, arima, tft, varr
