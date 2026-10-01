@@ -1,9 +1,13 @@
+"""Diebold-Mariano statistic of the best validation baseline against the TFT at h=3.
+
+Writes data/processed/dm_test_results.parquet."""
 import pandas as pd
 import numpy as np
 import os
 from evaluation_utils import align
 
 def evalute(actual, compare1, compare2):
+    """Return the loss differential d = (actual - compare1)**2 - (actual - compare2)**2."""
     e_1 = actual - compare1
     e_2   = actual - compare2
     d = e_1**2 - e_2**2
@@ -11,11 +15,14 @@ def evalute(actual, compare1, compare2):
     return d
 
 def gamma(d, k):
+    """Return the lag-k autocovariance of d: sum of (d_t - mean) * (d_{t-k} - mean) over available pairs, divided by len(d)."""
     d_bar = d.mean()
     return ((d - d_bar) * (d.shift(k) - d_bar)).dropna().sum() / len(d)
 
 
 def main():
+    """For each target at h=3, take the baseline with the lowest RMSE in Baseline_Results.csv, compute the DM
+    statistic against the TFT with autocovariances up to lag h-1, and write and print the results."""
     preds = pd.read_pickle("data/processed/predictions_unalligned.pkl")
     tft = pd.read_pickle("data/processed/predictions_unalligned_tft.pkl")
     preds = pd.concat([preds, tft], ignore_index=True)
