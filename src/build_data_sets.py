@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
-from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer, QuantileLoss
-from lightning.pytorch import Trainer, seed_everything
-import os
+from pytorch_forecasting import TimeSeriesDataSet
 
 def prepare(df):
     df = df.reset_index(drop=True)   
