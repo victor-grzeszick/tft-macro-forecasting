@@ -1,7 +1,3 @@
-import pandas as pd
-import numpy as np
-import os
-
 def evaluate(y_history, y_val):
     return (abs(y_history - y_val).mean(), ((y_history - y_val)**2).mean()**0.5)
 
