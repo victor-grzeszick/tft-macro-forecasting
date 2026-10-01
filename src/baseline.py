@@ -1,3 +1,6 @@
+"""Random Walk, rolling ARIMA and expanding-window VAR(1) forecasts for the validation period.
+
+Writes data/processed/predictions_unalligned.pkl (one row per target, horizon and model)."""
 import pandas as pd
 import numpy as np
 import pmdarima
@@ -5,15 +8,20 @@ import os
 from statsmodels.tsa.api import VAR as var
 
 def rw_forecast(y_history, h):
+    """Random-walk forecast: shift `y_history` forward by h rows."""
     return y_history.shift(h)
 
 def rw_forecast_rolling(name, h, df, date_start, date_end):
+    """Return the h-step random-walk forecast of column `name` from date_start to date_end."""
     df_ = rw_forecast(df, h)
     df_prediction = df_.loc[date_start: date_end, name]
 
     return df_prediction
 
 def arima_rolling_forecast(name, train_series, val_series, h):
+    """Fit auto_arima (d=0, seasonal=False) on train_series[name]. For each value in val_series: forecast h steps, store
+    the h-th forecast under the date h rows after the values seen so far in concat(train_series, val_series), then
+    update the model with that value. Returns the forecasts whose dates lie in val_series."""
     train_series = train_series[name]
     val_series = val_series[name]
     model = pmdarima.auto_arima(train_series, d=0, seasonal=False)
@@ -35,6 +43,9 @@ def arima_rolling_forecast(name, train_series, val_series, h):
     return pred_series[common]
 
 def var_rolling_forecast(name, df_train, df_val, h):
+    """For each row of df_val, fit VAR(1) on all earlier rows of concat(df_train, df_val) (expanding window), forecast
+    h steps, and store the forecast of column `name` under the date h rows after the window in that concatenation.
+    Returns the forecasts whose dates lie in df_val."""
 
     full = pd.concat([df_train, df_val])
     cutoff = len(df_train)
@@ -55,6 +66,8 @@ def var_rolling_forecast(name, df_train, df_val, h):
     return pred_series[common]
 
 def main():
+    """Run RW, ARIMA and VAR (on CPIAUCSL, UNRATE, INDPRO, FEDFUNDS, T10YFFM) for each target
+    and horizon 3 and 12, and pickle the forecasts to data/processed/predictions_unalligned.pkl."""
     df_train = pd.read_parquet("data/processed/Y_train.parquet")
     df_val = pd.read_parquet("data/processed/Y_val.parquet")
     system_train = pd.read_parquet("data/processed/X_train.parquet").loc[:, ["CPIAUCSL","UNRATE","INDPRO","FEDFUNDS","T10YFFM"]]
