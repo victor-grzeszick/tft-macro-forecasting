@@ -1,26 +1,37 @@
+"""Apply the FRED-MD transformation codes to data/raw/fred_md.csv.
+
+Writes data/processed/fred_md_transformed.parquet."""
 import pandas as pd
 import numpy as np
 import os
 
 def code_1(pRow):
+    """Code 1: return the series unchanged."""
     return pRow
 
 def code_2(pRow):
+    """Code 2: first difference."""
     return pRow.diff()
 
 def code_4(pRow):
+    """Code 4: natural log."""
     return np.log(pRow)
 
 def code_5(pRow):
+    """Code 5: first difference of the natural log."""
     return np.log(pRow).diff()
 
 def code_6(pRow):
+    """Code 6: second difference of the natural log."""
     return np.log(pRow).diff().diff()
 
 def code_7(pRow):
+    """Code 7: first difference of the one-period growth rate x_t / x_{t-1} - 1."""
     return (pRow / pRow.shift(1) - 1).diff()
 
 def main(pTransformations):
+    """Read the raw CSV, take each column's code from its first row (CPIAUCSL set to 5),
+    apply the matching function from pTransformations, and write the result to parquet."""
 
     df = pd.read_csv("data/raw/fred_md.csv")
 

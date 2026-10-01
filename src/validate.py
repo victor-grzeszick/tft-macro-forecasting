@@ -1,8 +1,10 @@
+"""Print Augmented Dickey-Fuller test results for CPIAUCSL, INDPRO, UNRATE, FEDFUNDS and T10YFFM."""
 from statsmodels.tsa.stattools import adfuller
 import pandas as pd
 
 
 def run_adf(series, name):
+    """Run adfuller on `series` with NaNs dropped; print the statistic, p-value and 5% critical value."""
     result = adfuller(series.dropna())
     print(f"{name}:")
     print(f"  ADF statistic: {result[0]:.4f}")
@@ -11,6 +13,8 @@ def run_adf(series, name):
     print()
 
 def main():
+    """Run ADF on CPIAUCSL, INDPRO and UNRATE over the whole transformed file,
+    and on FEDFUNDS and T10YFFM over 1990-01 to 2017-12."""
     df = pd.read_parquet("data/processed/fred_md_transformed.parquet")
 
     run_adf(df["CPIAUCSL"], "CPIAUCSL")

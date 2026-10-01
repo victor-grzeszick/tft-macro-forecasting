@@ -1,11 +1,14 @@
+"""Toy TFT on a synthetic noisy sine wave: load (case_switch = 0) or train (case_switch = 1)
+models/tft_toy.ckpt and save prediction plots."""
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer, QuantileLoss
 from lightning.pytorch import Trainer, seed_everything
 import os
 
 def main():
+    """Build a 200-step noisy sine series (training: time_idx < 170), load or train the toy TFT,
+    and save plots for validation samples 0, 10 and 20 to figures/toy_idx{index}.png."""
     seed_everything(42)
     frame = []
     case_switch = 0 ##0 = import training, 1 = new training

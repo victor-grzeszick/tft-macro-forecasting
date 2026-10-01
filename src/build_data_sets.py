@@ -1,16 +1,19 @@
+"""Build pytorch-forecasting TimeSeriesDataSets (training and validation) per target and horizon."""
 import pandas as pd
 import numpy as np
-from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer, QuantileLoss
-from lightning.pytorch import Trainer, seed_everything
-import os
+from pytorch_forecasting import TimeSeriesDataSet
 
 def prepare(df):
+    """Drop the date index and add an integer `time_idx` column and a constant group column `series`."""
     df = df.reset_index(drop=True)   
     df["time_idx"] = np.arange(len(df))
     df["series"] = "macro"
     return df
 
 def build_one_dataset(df_train, df_val, h, name):
+    """Return (train_ds, val_ds) for target `name` and horizon h: max encoder length 24, time_idx as known real,
+    all other columns as unknown reals. val_ds is built on concat(df_train, df_val) and predicts only
+    time steps after the training rows."""
     df_full = pd.concat((df_train, df_val))
     
     df_train = prepare(df_train)
@@ -22,6 +25,8 @@ def build_one_dataset(df_train, df_val, h, name):
 
 
 def build_data_set(df_train, df_val, horizons, targets):
+    """Call build_one_dataset for every target and horizon.
+    Returns two lists of {Target, Horizon, DataSet} dicts: training sets and validation sets."""
 
     train_data_sets = []
     val_data_sets = []
@@ -36,6 +41,8 @@ def build_data_set(df_train, df_val, horizons, targets):
     return train_data_sets, val_data_sets
 
 def main():
+    """Build the datasets for CPIAUCSL, UNRATE and INDPRO at horizons 3 and 12 from X_train and X_val.
+    Writes nothing."""
     df_train = pd.read_parquet("data/processed/X_train.parquet")
     df_val = pd.read_parquet("data/processed/X_val.parquet")
 

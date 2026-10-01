@@ -1,8 +1,8 @@
+"""Load (case_switch = 0) or train (case_switch = 1) one TFT per target and horizon, evaluate it on the
+validation set, and save plots, predictions, MAE/RMSE and variable importances."""
 import pandas as pd
-import numpy as np
 import os
-import matplotlib.pyplot as plt
-from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer, QuantileLoss
+from pytorch_forecasting import TemporalFusionTransformer, QuantileLoss
 from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.callbacks import EarlyStopping
 from build_data_sets import build_one_dataset
@@ -10,6 +10,8 @@ from evaluation_utils import evaluate
 
 
 def load_or_train(train_ds, train_dl, val_dl, target, horizon, learning_rate, size, case_switch):
+    """If case_switch == 1, train a TFT (early stopping on val_loss) and save it to
+    models/tft_{target}_h{horizon}.ckpt; otherwise load that checkpoint. Returns the model."""
     ckpt_path = f"models/tft_{target}_h{horizon}.ckpt"
     if case_switch == 1:
         tft = TemporalFusionTransformer.from_dataset(train_ds, hidden_size=size, learning_rate=learning_rate, loss=QuantileLoss())
@@ -24,6 +26,7 @@ def load_or_train(train_ds, train_dl, val_dl, target, horizon, learning_rate, si
 
 
 def eval_vs_baseline(tft, val_dl, horizon):
+    """Return (MAE, RMSE) of the TFT point predictions at step `horizon` on val_dl."""
     predict = tft.predict(val_dl, mode="prediction", return_y=True)
     output = predict.output[:, horizon - 1]
     y = predict.y[0][:, horizon - 1].cpu()
@@ -31,10 +34,13 @@ def eval_vs_baseline(tft, val_dl, horizon):
     return mae.item(), rmse.item()
 
 def predict_series(tft, val_dl, horizon, date_index):
+    """Return the TFT point predictions at step `horizon` on val_dl as a Series indexed by date_index."""
     out = tft.predict(val_dl, mode="prediction")[:, horizon - 1].cpu().numpy()
     return pd.Series(out, index=date_index)
 
 def top_k_importance(tft, val_dl, k):
+    """Return the k encoder variables with the largest summed variable-selection weights on val_dl,
+    as {Name, Value} dicts in descending order."""
     prediction = tft.predict(val_dl, mode="raw", return_x=True)
     interpretation = tft.interpret_output(prediction.output, reduction="sum")
     scores = interpretation["encoder_variables"]
@@ -46,12 +52,15 @@ def top_k_importance(tft, val_dl, k):
     return variables[:k]
 
 def save_plot(tft, val_dl, target, horizon):
+    """Save the TFT prediction plot for the first validation sample to figures/tft_{target}_h{horizon}.png."""
     prediction = tft.predict(val_dl, mode="raw", return_x=True)
     fig = tft.plot_prediction(prediction.x, prediction.output, idx=0)
     os.makedirs("figures", exist_ok=True)
     fig.savefig(f"figures/tft_{target}_h{horizon}.png")
 
 def tune_architecture(train_ds, train_dl, val_dl):
+    """Grid search over hidden size, dropout and learning rate (max 50 epochs, early stopping on val_loss).
+    Returns the (size, dropout, rate) with the lowest val_loss. Not called by main()."""
 
     learning_rate = [0.01, 0.02, 0.0234, 0.03, 0.01]
     hidden_size = [8, 12, 16, 32]
@@ -77,6 +86,9 @@ def tune_architecture(train_ds, train_dl, val_dl):
 
 
 def main():
+    """For each target and horizon (3, 12): build the datasets, load or train the TFT, save its plot, and record
+    MAE/RMSE, top-10 importances and predictions. Writes predictions_unalligned_tft.pkl,
+    Baseline_Results_with_tft.csv and Full_results.csv to data/processed/."""
     seed_everything(42)
     df_train = pd.read_parquet("data/processed/X_train.parquet")
     df_val = pd.read_parquet("data/processed/X_val.parquet")

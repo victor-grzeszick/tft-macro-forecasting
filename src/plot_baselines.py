@@ -1,9 +1,11 @@
+"""Plot actual values against the RW, ARIMA and VAR validation forecasts."""
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
 from evaluation_utils import align
 
 def main():
+    """Save one figure per target and horizon (3, 12) to figures/{target}_h{h}.png."""
     predictions_df = pd.read_pickle("data/processed/predictions_unalligned.pkl")
     df_val = pd.read_parquet("data/processed/Y_val.parquet")
     os.makedirs("figures", exist_ok=True)
