@@ -1,67 +1,71 @@
 # tft-macro-forecasting
 
-Undergraduate research project comparing Temporal Fusion Transformers (TFT) against
-classical econometric baselines (ARIMA, VAR) for short-horizon forecasting of US CPI
-inflation, unemployment, and industrial production growth, using the FRED-MD dataset
-(McCracken & Ng 2016). Stage 1 targets a 6-page short paper and arXiv submission
-by July 5, 2026.
+**The question.** Does a deep-learning forecaster, the Temporal Fusion Transformer (TFT; Lim et al. 2021), predict US inflation, unemployment and industrial-production growth more accurately than classical time-series models, 3 and 12 months ahead, over 2020–2024? <!-- src: paper/spec.md:5,25 --> The project trains one TFT per series and horizon and compares it with three baselines on the monthly FRED-MD database (McCracken & Ng 2016). <!-- src: paper/spec.md:9,29-35 -->
 
-**Author:** Victor Grzeszick, EMA-Gymnasium Bonn.
-**Status:** Work in progress. All results reported so far are validation-set metrics
-(2018–2019); the test set (2020–2024) is reserved for the final evaluation and has
-not been touched.
+Baselines:
+- **Random walk (RW):** the forecast is the last observed value. <!-- src: paper/spec.md:31 -->
+- **ARIMA:** one model per series, forecasting from its own past values and past errors. <!-- src: src/baseline.py:21-27 -->
+- **VAR:** one linear model of five series together: the three targets, the federal funds rate and a term spread (T10YFFM). <!-- src: src/baseline.py:73; paper/spec.md:33 -->
 
-## Setup
+## Status (2026-10-01)
 
-Requires Python 3.11.
+- **Done:** data pipeline; three baselines; six TFTs (3 series × 2 horizons), checkpoints in `models/`; Diebold-Mariano (DM) statistics at h=3. All scored on the validation period 2018–2019 only. <!-- src: git ls-files models/; data/processed/Baseline_Results.csv; data/processed/dm_test_results.parquet --> DM, per Victor's notes, "checks whether one model's lower error is a genuine edge or just luck on this sample". <!-- src: notes/notes_models.md:76-77 -->
+- **Not evaluated:** the test period 2020–2024; no test result exists. <!-- src: src/data_pipeline.py:72,76 -->
+- **Not done:** DM p-values, the crisis robustness check, attention and importance tables. <!-- src: src/dm_test.py:52-59; paper/spec.md:45,47; src/trainer.py:139; .gitignore:226 -->
 
-```bash
-git clone https://github.com/victor-grzeszick/tft-macro-forecasting.git
-cd tft-macro-forecasting
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+TODO(Victor): current timeline for the test-set run and the preprint.
 
-The raw dataset is included: `data/raw/fred_md.csv` is the FRED-MD vintage of
-2026-05, downloaded 2026-05-10 from the McCracken/St. Louis Fed FRED-MD page.
-It is committed deliberately: FRED-MD is re-issued monthly with revised values,
-so replication on a later download would not reproduce these numbers exactly.
+**Quickstart:** install `requirements.txt` (Python 3.11), then run `bash scripts/reproduce.sh`. Details, including a workaround for two scripts that crash at the current commit: [docs/REPRODUCE.md](docs/REPRODUCE.md). <!-- src: scripts/reproduce.sh:4,23-25; src/evaluation_utils.py:16 -->
 
-## Data pipeline
+## Headline results (validation)
 
-`src/build_dataset.py` reads `data/raw/fred_md.csv`, sets the date column as index,
-applies the McCracken-Ng transformation codes per series, and writes
-`data/processed/fred_md_transformed.parquet`.
+Root-mean-squared error (RMSE), lower is better, rounded from `data/processed/Baseline_Results.csv`. Units: monthly log growth for CPIAUCSL and INDPRO, monthly change in the unemployment rate for UNRATE. <!-- src: paper/spec.md:17-19; src/build_dataset.py:20-22,40 --> The three baselines share the same target dates: h=3 → 2018-03 to 2019-12 (n=22); h=12 → 2018-12 to 2019-12 (n=13). <!-- src: data/processed/predictions_unalligned.pkl (ARIMA and VAR date index); src/evaluation_utils.py:18-24 -->
 
-`src/validate.py` runs ADF tests on the transformed series (INDPRO, CPIAUCSL,
-UNRATE, FEDFUNDS, T10YFFM) to confirm the transformations produced stationary data.
+| Series | h (months ahead) | RW | ARIMA* | VAR |
+|---|---|---|---|---|
+| CPIAUCSL | 3 | 0.002263 | 0.001370 | 0.001510 |
+| CPIAUCSL | 12 | 0.002292 | 0.001494 | 0.001497 |
+| UNRATE | 3 | 0.1732 | 0.1179 | 0.1120 |
+| UNRATE | 12 | 0.1641 | 0.09460 | 0.09524 |
+| INDPRO | 3 | 0.006274 | 0.005304 | 0.005355 |
+| INDPRO | 12 | 0.007376 | 0.005443 | 0.005290 |
 
-`src/data_pipeline.py` drops columns with >5% missing values, splits the data into
+<!-- src: data/processed/Baseline_Results.csv:2-19 (RMSE column) -->
+\* ARIMA was fitted on data that include the validation months, so its errors are not out-of-sample; the size and direction of the bias were not measured. <!-- src: src/baseline.py:27,29,79,93 -->
 
-- train: 1990-01 – 2017-12 (`X_train.parquet`)
-- validation (hyperparameter tuning): 2018-01 – 2019-12 (`X_val.parquet`)
-- test (final evaluation only): 2020-01 – 2024-12 (`X_test.parquet`)
+**TFT.** There is no TFT column because no TFT metrics file is committed ([FINDINGS §2](docs/FINDINGS.md#2-tft-validation)). Victor's notes: "TFT vs best baseline (RMSE): 3 wins, 3 losses, all margins ≤10%. Competitive, doesn't systematically beat tuned ARIMA/VAR." <!-- src: notes/notes_models.md:158 --> TODO(Victor): confirm this count — a load-mode re-run of the committed checkpoints (REPRODUCE step 7) gave a different count; commit the TFT metrics file.
 
-and extracts the three targets (CPIAUCSL, UNRATE, INDPRO) into matching
-`Y_train/Y_val/Y_test.parquet` files, all under `data/processed/`.
+What this shows: on validation, ARIMA and VAR have lower RMSE than the random walk in every cell. <!-- src: data/processed/Baseline_Results.csv:2-19 --> What it does not show: anything about 2020–2024, or whether the TFT beats the best baseline.
 
-## Replication
+## Main limitations
 
-Run from the repo root, in this order:
+1. **Validation only, and reused:** the same 2018–2019 months were used to stop and tune the TFTs and to pick the "best baseline". <!-- src: src/trainer.py:18-20; notes/notes_models.md:146,149; src/dm_test.py:46-49 -->
+2. **ARIMA look-ahead** (above). ARIMA has the lowest baseline RMSE in 4 of 6 cells, so it is usually the TFT's comparison model. <!-- src: data/processed/Baseline_Results.csv:2-19; src/dm_test.py:46-49 -->
+3. **Tiny samples:** 22 or 13 dates; DM tests have little power. <!-- src: src/dm_test.py:52-59; notes/notes_models.md:87-89 -->
+4. **Revised data**, not the data available in real time. <!-- src: notes/notes_data.md:73 -->
+5. **COVID** (2020–2021) falls inside the future test period; in Victor's words, "test RMSE will be dominated by a few extreme months". <!-- src: notes/notes_data.md:75-76 -->
 
-1. `python src/build_dataset.py` — transformed dataset → `data/processed/fred_md_transformed.parquet`
-2. `python src/validate.py` — ADF stationarity checks (prints results, no files)
-3. `python src/data_pipeline.py` — train/val/test splits → six `X_/Y_` parquets
-4. `python src/baseline.py` — RW, ARIMA and VAR forecasts → `data/processed/predictions_unalligned.pkl`
-5. `python src/align_results.py` — aligned RMSE/MAE per model/target/horizon → `data/processed/Baseline_Results.csv`
-6. `python src/dm_test.py` — Diebold-Mariano tests (h=3, validation) → `data/processed/dm_test_results.parquet`
-7. `python src/plot_baselines.py` — predicted-vs-actual plots → `figures/*.png`
+Full list: [FINDINGS, Limitations](docs/FINDINGS.md#limitations-read-first).
 
-All random seeds are fixed; rerunning the pipeline on the committed raw data
-reproduces the reported numbers exactly.
+## Repository map
+
+- `src/`: pipeline scripts; `scripts/reproduce.sh` runs them in order, TFTs in load mode
+- `data/raw/fred_md.csv`: frozen FRED-MD input; `data/processed/`: splits, forecasts, results
+- `models/`: six TFT checkpoints and a toy model; `figures/`: forecast plots
+- `notes/`, `paper/spec.md`: Victor's working notes and research design
+- `docs/`: [REPRODUCE](docs/REPRODUCE.md), [FINDINGS](docs/FINDINGS.md), [DATA](docs/DATA.md), [DECISIONS](docs/DECISIONS.md), TFT-paper cheat sheets; `archive/`: unused scratch scripts
+- [CHANGELOG.md](CHANGELOG.md): project history
+
+<!-- src: git ls-files at 80e837f; scripts/reproduce.sh:2-3 -->
 
 ## References
 
 - Lim, Arık, Loeff, Pfister (2021). *Temporal Fusion Transformers for Interpretable Multi-Horizon Time Series Forecasting.* International Journal of Forecasting.
 - McCracken, Ng (2016). *FRED-MD: A Monthly Database for Macroeconomic Research.* Journal of Business & Economic Statistics.
+
+<!-- src: README.md@80e837f:66-67 -->
+
+## Author
+
+Victor Grzeszick, secondary-school (Gymnasium) student, Bonn. <!-- src: README.md@80e837f:9; git log --format=%an --> TODO(Victor): add the school's current name (the old README said EMA-Gymnasium Bonn) and confirm this wording.
+Licence: no licence file yet. TODO(Victor): choose one. <!-- src: git ls-files at 80e837f -->
