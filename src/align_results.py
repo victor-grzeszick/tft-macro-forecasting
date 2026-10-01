@@ -1,8 +1,13 @@
+"""Compute validation MAE and RMSE of the RW, ARIMA and VAR forecasts.
+
+Writes data/processed/Baseline_Results.csv."""
 import pandas as pd
 import os
 from evaluation_utils import evaluate, align
 
 def main():
+    """For each target and horizon (3, 12), align the baseline forecasts with Y_val
+    and write one MAE/RMSE row per model to Baseline_Results.csv."""
     df_val = pd.read_parquet("data/processed/Y_val.parquet")
     predictions_df = pd.read_pickle("data/processed/predictions_unalligned.pkl")
 
