@@ -1,8 +1,6 @@
 import pandas as pd
-import numpy as np
 import os
-import matplotlib.pyplot as plt
-from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer, QuantileLoss
+from pytorch_forecasting import TemporalFusionTransformer, QuantileLoss
 from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.callbacks import EarlyStopping
 from build_data_sets import build_one_dataset
