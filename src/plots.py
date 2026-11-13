@@ -16,7 +16,7 @@ import config
 from data_pipeline import load_panel
 from evaluate import load_forecasts
 
-COLOURS = {"RW": "tab:grey", "Mean": "tab:olive", "ARIMA": "tab:blue", "VAR": "tab:green", "TFT": "tab:red"}
+COLOURS = {"RW": "tab:grey", "Mean": "tab:olive", "Mean24": "tab:orange", "ARIMA": "tab:blue", "VAR": "tab:green", "TFT": "tab:red"}
 
 
 def grid():
@@ -55,7 +55,7 @@ def plot_forecasts(forecasts, period):
 
 def plot_relative_rmse(metrics, period):
     """RMSE of each model divided by the RMSE of the random walk."""
-    models = ["Mean", "ARIMA", "VAR", "TFT"]
+    models = ["Mean", "Mean24", "ARIMA", "VAR", "TFT"]
     part = metrics[(metrics["period"] == period) & metrics["model"].isin(models)]
     wide = part.assign(cell=part["target"] + "\nh=" + part["horizon"].astype(str)).pivot(index="cell", columns="model", values="rel_rmse")
     order = [f"{t}\nh={h}" for t in config.TARGETS for h in config.HORIZONS]

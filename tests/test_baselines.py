@@ -64,14 +64,27 @@ def test_no_forecast_uses_data_after_its_origin(short_panel):
 
 
 def test_frozen_models_keep_training_parameters(short_panel):
-    """With a constant series appended, frozen and refitted models must eventually differ."""
+    """Frozen and refitted models agree at the first origin and differ once new data have arrived;
+    frozen forecasts equal those of the training-sample model applied to the data up to the origin."""
+    from statsmodels.tsa.arima.model import ARIMA
+
     start = first_origin(short_panel.index)
     out = all_forecasts(short_panel, start)["forecast"]
-    first = short_panel.index[start]
-    for model in ("ARIMA", "VAR"):  # identical at the first origin, where both were estimated on the same data
+    first, last = short_panel.index[start], short_panel.index[-4]
+    for model in ("ARIMA", "VAR"):
         assert out[(model, 3, first)] == pytest.approx(out[(f"{model}_frozen", 3, first)], rel=1e-6)
-    last = short_panel.index[-4]
-    assert out[("VAR", 3, last)] != pytest.approx(out[("VAR_frozen", 3, last)], rel=1e-9)
+        assert out[(model, 3, last)] != pytest.approx(out[(f"{model}_frozen", 3, last)], rel=1e-9)
+    y = short_panel["UNRATE"]
+    trained = ARIMA(y.iloc[: start + 1], order=(1, 0, 0), trend="c").fit()
+    applied = trained.apply(y.loc[:last]).forecast(3).iloc[-1]
+    assert out[("ARIMA_frozen", 3, last)] == pytest.approx(applied, rel=1e-8)
+
+
+def test_rolling_mean_uses_last_24_months(short_panel):
+    start = first_origin(short_panel.index)
+    out = frame(naive_forecasts(short_panel["UNRATE"], HORIZONS, start))
+    origin = short_panel.index[start + 1]
+    assert out.at[("Mean24", 3, origin), "forecast"] == pytest.approx(short_panel["UNRATE"].loc[:origin].iloc[-24:].mean())
 
 
 def test_var_one_step_forecast_matches_manual_ols(short_panel):

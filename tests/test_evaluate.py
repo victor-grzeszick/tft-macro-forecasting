@@ -3,7 +3,9 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from evaluate import autocovariance, diebold_mariano, mae, rmse
+import pandas as pd
+
+from evaluate import autocovariance, diebold_mariano, dm_table, mae, metrics_table, rmse
 
 
 def test_rmse_and_mae():
@@ -59,3 +61,39 @@ def test_dm_falls_back_to_bartlett_when_variance_estimate_is_negative():
     a, b = np.sqrt(d + 2.0), np.sqrt(np.full(20, 2.0))
     statistic, pvalue, kernel = diebold_mariano(a, b, 2)
     assert kernel == "bartlett" and np.isfinite(statistic)
+
+
+def make_forecasts():
+    dates = pd.date_range("2020-03-01", periods=30, freq="MS")
+    rng = np.random.default_rng(7)
+    actual = rng.normal(size=30)
+    rows = []
+    for model, noise in [("RW", 2.0), ("Mean", 1.0), ("Mean24", 1.0), ("ARIMA", 1.0), ("VAR", 1.0),
+                         ("ARIMA_frozen", 1.0), ("VAR_frozen", 1.0), ("TFT", 0.5)]:
+        forecast = actual + noise * rng.normal(size=30)
+        rows.append(pd.DataFrame({"period": "test", "target": "UNRATE", "horizon": 3, "model": model, "date": dates,
+                                  "actual": actual, "forecast": forecast, "error": actual - forecast,
+                                  "q10": forecast - 1 if model == "TFT" else np.nan,
+                                  "q90": forecast + 1 if model == "TFT" else np.nan}))
+    return pd.concat(rows, ignore_index=True)
+
+
+def test_metrics_table_matches_direct_calculation():
+    forecasts = make_forecasts()
+    table = metrics_table(forecasts).set_index("model")
+    tft = forecasts[forecasts["model"] == "TFT"]
+    assert table.at["TFT", "rmse"] == pytest.approx(np.sqrt((tft["error"] ** 2).mean()))
+    assert table.at["TFT", "rel_rmse"] == pytest.approx(table.at["TFT", "rmse"] / table.at["RW", "rmse"])
+    assert table.at["RW", "rel_rmse"] == pytest.approx(1.0)
+    assert table.at["TFT", "coverage_80"] == pytest.approx((tft["error"].abs() <= 1).mean())
+    assert np.isnan(table.at["ARIMA", "coverage_80"])
+
+
+def test_dm_table_compares_tft_with_each_benchmark():
+    forecasts = make_forecasts()
+    table = dm_table(forecasts, ["test"])
+    row = table[(table["model_a"] == "TFT") & (table["model_b"] == "RW")].iloc[0]
+    errors = forecasts.pivot(index="date", columns="model", values="error")
+    assert row["dm_stat"] == pytest.approx(diebold_mariano(errors["TFT"], errors["RW"], 3)[0])
+    assert row["dm_stat"] < 0 and row["n"] == 30
+    assert dm_table(forecasts, ["val"]).empty

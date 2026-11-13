@@ -34,15 +34,19 @@ def forecast(model, eval_ds, index, target, horizon, label):
     return out
 
 
-def interpret(model, eval_ds):
-    """Average variable-selection weights (encoder) and attention weights over all samples in `eval_ds`."""
+def interpret(model, eval_ds, horizon):
+    """Average variable-selection weights (encoder) and attention weights over all samples in `eval_ds`.
+
+    Attention is taken for the evaluated decoder step t+h, restricted to the 24 encoder months and
+    rescaled to sum to one.
+    """
     loader = eval_ds.to_dataloader(train=False, batch_size=256)
     raw = model.predict(loader, mode="raw", trainer_kwargs=trainer_options())
-    summary = model.interpret_output(raw, reduction="mean")
+    summary = model.interpret_output(raw, reduction="mean", attention_prediction_horizon=horizon - 1)
     importance = pd.Series(summary["encoder_variables"].cpu().numpy(), index=model.encoder_variables)
     attention = pd.Series(summary["attention"].cpu().numpy()[: config.ENCODER_LENGTH],
-                          index=range(-config.ENCODER_LENGTH + 1, 1))
-    return importance / importance.sum(), attention
+                          index=range(-config.ENCODER_LENGTH + 1, 1)).fillna(0.0)
+    return importance / importance.sum(), attention / attention.sum()
 
 
 def main(until, seeds):
@@ -57,14 +61,14 @@ def main(until, seeds):
                 train_ds = training_dataset(train_panel, target, horizon)
                 eval_ds = evaluation_dataset(train_ds, panel, first_origin(panel.index))
                 forecasts.append(forecast(model, eval_ds, panel.index, target, horizon, label))
-                importance, attention = interpret(model, eval_ds)
+                importance, attention = interpret(model, eval_ds, horizon)
                 top = importance.sort_values(ascending=False).head(10)
                 importances.append(pd.DataFrame({"target": target, "horizon": horizon, "seed": seed, "rank": range(1, 11),
                                                  "variable": top.index, "weight": top.to_numpy()}))
                 attentions.append(pd.DataFrame({"target": target, "horizon": horizon, "seed": seed,
                                                 "lag": attention.index, "attention": attention.to_numpy()}))
     forecasts = pd.concat(forecasts).assign(seed=lambda f: f["model"].str.extract(r"seed(\d+)")[0].fillna(config.SEED).astype(int))
-    outputs = {"forecasts_tft.csv": (forecasts, "%.8g"), "variable_importance.csv": (pd.concat(importances), "%.6f"),
+    outputs = {"forecasts_tft.csv": (forecasts, "%.6g"), "variable_importance.csv": (pd.concat(importances), "%.6f"),
                "attention.csv": (pd.concat(attentions), "%.6f")}
     for name, (table, number_format) in outputs.items():
         path = config.RESULTS_DIR / name

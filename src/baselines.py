@@ -1,6 +1,6 @@
 """Step 3: walk-forward forecasts of the classical benchmarks.
 
-Models: random walk (RW), historical mean (Mean), ARIMA and VAR. ARIMA orders and the VAR lag length are
+Models: random walk (RW), historical mean (Mean), 24-month rolling mean (Mean24), ARIMA and VAR. ARIMA orders and the VAR lag length are
 chosen once on the training sample; parameters are then re-estimated every month on an expanding window.
 The *_frozen variants keep the training-sample parameters fixed, which mirrors how the TFT is used.
 
@@ -32,12 +32,15 @@ def _records(index, origin, path, target, model, horizons):
 
 
 def naive_forecasts(y, horizons, start):
-    """Random walk (last observed value) and historical mean (mean of all values up to the origin)."""
+    """Random walk (last observed value), historical mean (mean of all values up to the origin) and
+    rolling mean (mean of the last 24 values, the TFT's encoder window)."""
     rows = []
     for origin in range(start, len(y) - 1):
         history = y.iloc[: origin + 1]
-        rows += _records(y.index, origin, [history.iloc[-1]] * max(horizons), y.name, "RW", horizons)
-        rows += _records(y.index, origin, [history.mean()] * max(horizons), y.name, "Mean", horizons)
+        constants = {"RW": history.iloc[-1], "Mean": history.mean(),
+                     "Mean24": history.iloc[-config.ENCODER_LENGTH:].mean()}
+        for model, value in constants.items():
+            rows += _records(y.index, origin, [value] * max(horizons), y.name, model, horizons)
     return rows
 
 

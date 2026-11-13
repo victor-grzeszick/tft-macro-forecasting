@@ -78,3 +78,7 @@ run on 2020–2024 data. `docs/report.md` describes the final design in full.
     the end of the training sample, which mirrors the TFT's frozen weights; (ii) five random seeds for the
     TFT and their ensemble; (iii) the test period without 2020. The crisis subsample (2008–2010) of the
     original plan was not carried out.
+11. **Added after the test run (diagnostics only).** An independent review of the results led to two
+    additions that were *not* pre-specified: a 24-month rolling-mean benchmark (Mean24) and a table of the
+    TFT's forecasts in standardised units, which together show that the trained networks ignore their
+    inputs. Attention weights are now reported for the evaluated step *t + h* rather than *t + 1*.

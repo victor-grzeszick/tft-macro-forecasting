@@ -26,6 +26,11 @@ Test period 2020–2024, RMSE relative to the random walk (below 1 is better tha
 - The TFT is **not significantly more accurate than a random walk** for any target or horizon
   (Diebold-Mariano p between 0.28 and 0.61) and never beats the historical mean.
 - For inflation twelve months ahead, **ARIMA is significantly more accurate than the TFT** (p = 0.011).
+  At that horizon the ARIMA forecast is practically a constant, and the comparison with the VAR that was
+  pre-selected on validation data is not significant.
+- **The trained networks ignore their inputs.** In standardised units most of them output the same number
+  every month, so the TFT behaves like a 24-month rolling mean of the target; its variable-importance
+  weights differ with every random seed and mean nothing.
 - The historical mean is the best or near-best forecast everywhere: at these horizons the series were
   essentially unpredictable, so a model with 102,000 parameters had nothing to add.
 - Unemployment and industrial-production results are dominated by the COVID-19 shock of 2020.
@@ -40,7 +45,7 @@ Test period 2020–2024, RMSE relative to the random walk (below 1 is better tha
 | `src/config.py` | all design choices in one place: periods, targets, horizons, TFT settings |
 | `src/build_dataset.py` | step 1: applies the FRED-MD transformation codes |
 | `src/data_pipeline.py` | step 2: builds the 1990–2024 panel, ADF tests |
-| `src/baselines.py` | step 3: walk-forward RW, Mean, ARIMA and VAR forecasts |
+| `src/baselines.py` | step 3: walk-forward random-walk, mean, ARIMA and VAR forecasts |
 | `src/tft_data.py`, `src/tft_train.py` | step 4: TFT datasets, hyperparameter grid and training |
 | `src/tft_predict.py` | step 5: TFT forecasts, variable importance, attention |
 | `src/evaluate.py` | step 6: RMSE, MAE, Diebold-Mariano tests |
@@ -68,9 +73,9 @@ bash scripts/reproduce.sh
 
 `scripts/reproduce.sh` runs the unit tests and then steps 1–7 with the committed TFT checkpoints (about a
 minute on a laptop CPU). `bash scripts/reproduce.sh --retrain` also repeats the hyperparameter search and
-retrains all TFT models for five seeds (about fifteen minutes). Baseline results are deterministic.
-Retrained networks can differ in the last digits across machines; the committed checkpoints reproduce
-the reported TFT numbers.
+retrains all TFT models for five seeds (about ten minutes); on the machine used for the study this
+reproduced every file in `results/` exactly. On other hardware retrained networks may differ slightly; the
+committed checkpoints reproduce the reported seed-42 numbers.
 
 Each step can also be run on its own, e.g. `python src/evaluate.py`. Steps 3, 5, 6 and 7 accept
 `--until val`, which stops before the test period; this is how the pipeline was developed without looking
