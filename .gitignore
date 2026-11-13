@@ -223,5 +223,8 @@ paper/*.pdf
 
 # Project run artifacts
 lightning_logs/
+# Everything in data/processed/ is rebuilt from data/raw/ by src/build_dataset.py and src/data_pipeline.py
 data/processed/
+# Checkpoints of the additional seeds (rebuilt by scripts/reproduce.sh --retrain); seed 42 is tracked
+models/*_seed*.ckpt
 src/test.py

@@ -1,17 +1,41 @@
 # tft-macro-forecasting
 
-Undergraduate research project comparing Temporal Fusion Transformers (TFT) against
-classical econometric baselines (ARIMA, VAR) for short-horizon forecasting of US CPI
-inflation, unemployment, and industrial production growth, using the FRED-MD dataset
-(McCracken & Ng 2016). Stage 1 targets a 6-page short paper and arXiv submission
-by July 5, 2026.
+Does a deep-learning forecaster beat simple econometric benchmarks on US macroeconomic data?
 
-**Author:** Victor Grzeszick, EMA-Gymnasium Bonn.
-**Status:** Work in progress. All results reported so far are validation-set metrics
-(2018–2019); the test set (2020–2024) is reserved for the final evaluation and has
-not been touched.
+This project compares a Temporal Fusion Transformer (TFT; Lim et al., 2021) with a random walk, a
+historical-mean forecast, ARIMA and a small VAR for 3- and 12-month-ahead forecasts of US CPI inflation,
+the unemployment rate and industrial production, using the FRED-MD database (McCracken & Ng, 2016).
+Models are fitted on 1990–2017, tuned on 2018–2019 and evaluated once on 2020–2024.
 
-## Setup
+**Author:** Victor Grzeszick, Felix-Hausdorff-Gymnasium Bonn.
+**Full write-up:** [`docs/report.md`](docs/report.md).
+
+## Result
+
+RESULT_PLACEHOLDER
+
+## Repository layout
+
+| Path | Content |
+|---|---|
+| `data/raw/fred_md.csv` | FRED-MD vintage downloaded 2026-05-10 (committed, because FRED-MD is revised monthly) |
+| `src/config.py` | all design choices in one place: periods, targets, horizons, TFT settings |
+| `src/build_dataset.py` | step 1: applies the FRED-MD transformation codes |
+| `src/data_pipeline.py` | step 2: builds the 1990–2024 panel, ADF tests |
+| `src/baselines.py` | step 3: walk-forward RW, Mean, ARIMA and VAR forecasts |
+| `src/tft_data.py`, `src/tft_train.py` | step 4: TFT datasets, hyperparameter grid and training |
+| `src/tft_predict.py` | step 5: TFT forecasts, variable importance, attention |
+| `src/evaluate.py` | step 6: RMSE, MAE, Diebold-Mariano tests |
+| `src/plots.py` | step 7: figures |
+| `tests/` | unit tests (transformations, splits, look-ahead checks, DM test) |
+| `results/` | every number in the report, as CSV; `results/summary.md` holds the main tables |
+| `models/` | trained TFT checkpoints (seed 42) |
+| `figures/` | figures used in the report |
+| `docs/report.md` | the report |
+| `paper/spec.md` | the original specification and its dated amendments |
+| `notes/` | lab notes and reading notes from the working process (historical) |
+
+## Reproducing the results
 
 Requires Python 3.11.
 
@@ -21,47 +45,30 @@ cd tft-macro-forecasting
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+bash scripts/reproduce.sh
 ```
 
-The raw dataset is included: `data/raw/fred_md.csv` is the FRED-MD vintage of
-2026-05, downloaded 2026-05-10 from the McCracken/St. Louis Fed FRED-MD page.
-It is committed deliberately: FRED-MD is re-issued monthly with revised values,
-so replication on a later download would not reproduce these numbers exactly.
+`scripts/reproduce.sh` runs the unit tests and then steps 1–7 with the committed TFT checkpoints (about a
+minute on a laptop CPU). `bash scripts/reproduce.sh --retrain` also repeats the hyperparameter search and
+retrains all TFT models for five seeds (about fifteen minutes). Baseline results are deterministic.
+Retrained networks can differ in the last digits across machines; the committed checkpoints reproduce
+the reported TFT numbers.
 
-## Data pipeline
+Each step can also be run on its own, e.g. `python src/evaluate.py`. Steps 3, 5, 6 and 7 accept
+`--until val`, which stops before the test period; this is how the pipeline was developed without looking
+at test data.
 
-`src/build_dataset.py` reads `data/raw/fred_md.csv`, sets the date column as index,
-applies the McCracken-Ng transformation codes per series, and writes
-`data/processed/fred_md_transformed.parquet`.
+## Acknowledgement
 
-`src/validate.py` runs ADF tests on the transformed series (INDPRO, CPIAUCSL,
-UNRATE, FEDFUNDS, T10YFFM) to confirm the transformations produced stationary data.
-
-`src/data_pipeline.py` drops columns with >5% missing values, splits the data into
-
-- train: 1990-01 – 2017-12 (`X_train.parquet`)
-- validation (hyperparameter tuning): 2018-01 – 2019-12 (`X_val.parquet`)
-- test (final evaluation only): 2020-01 – 2024-12 (`X_test.parquet`)
-
-and extracts the three targets (CPIAUCSL, UNRATE, INDPRO) into matching
-`Y_train/Y_val/Y_test.parquet` files, all under `data/processed/`.
-
-## Replication
-
-Run from the repo root, in this order:
-
-1. `python src/build_dataset.py` — transformed dataset → `data/processed/fred_md_transformed.parquet`
-2. `python src/validate.py` — ADF stationarity checks (prints results, no files)
-3. `python src/data_pipeline.py` — train/val/test splits → six `X_/Y_` parquets
-4. `python src/baseline.py` — RW, ARIMA and VAR forecasts → `data/processed/predictions_unalligned.pkl`
-5. `python src/align_results.py` — aligned RMSE/MAE per model/target/horizon → `data/processed/Baseline_Results.csv`
-6. `python src/dm_test.py` — Diebold-Mariano tests (h=3, validation) → `data/processed/dm_test_results.parquet`
-7. `python src/plot_baselines.py` — predicted-vs-actual plots → `figures/*.png`
-
-All random seeds are fixed; rerunning the pipeline on the committed raw data
-reproduces the reported numbers exactly.
+The research question, the choice of data, targets and models, and the original implementation (May–July
+2026) are my own. An AI assistant (Claude) was used in October–November 2026 to audit the code, rewrite the
+pipeline, add the robustness checks and unit tests, run the final evaluation and draft the documentation;
+this is visible in the commit history.
 
 ## References
 
-- Lim, Arık, Loeff, Pfister (2021). *Temporal Fusion Transformers for Interpretable Multi-Horizon Time Series Forecasting.* International Journal of Forecasting.
-- McCracken, Ng (2016). *FRED-MD: A Monthly Database for Macroeconomic Research.* Journal of Business & Economic Statistics.
+- Diebold, F. X., & Mariano, R. S. (1995). Comparing predictive accuracy. *Journal of Business & Economic Statistics*, 13(3), 253–263.
+- Harvey, D., Leybourne, S., & Newbold, P. (1997). Testing the equality of prediction mean squared errors. *International Journal of Forecasting*, 13(2), 281–291.
+- Lim, B., Arık, S. Ö., Loeff, N., & Pfister, T. (2021). Temporal Fusion Transformers for interpretable multi-horizon time series forecasting. *International Journal of Forecasting*, 37(4), 1748–1764.
+- McCracken, M. W., & Ng, S. (2016). FRED-MD: A monthly database for macroeconomic research. *Journal of Business & Economic Statistics*, 34(4), 574–589.
+- Stock, J. H., & Watson, M. W. (2007). Why has U.S. inflation become harder to forecast? *Journal of Money, Credit and Banking*, 39(s1), 3–33.

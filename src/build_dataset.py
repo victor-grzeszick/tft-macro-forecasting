@@ -1,65 +1,61 @@
-"""Apply the FRED-MD transformation codes to data/raw/fred_md.csv.
+"""Step 1: apply the FRED-MD transformation codes to the raw vintage.
 
-Writes data/processed/fred_md_transformed.parquet."""
-import pandas as pd
+Reads data/raw/fred_md.csv and writes data/processed/fred_md_transformed.parquet.
+"""
 import numpy as np
-import os
+import pandas as pd
 
-def code_1(pRow):
-    """Code 1: return the series unchanged."""
-    return pRow
-
-def code_2(pRow):
-    """Code 2: first difference."""
-    return pRow.diff()
-
-def code_4(pRow):
-    """Code 4: natural log."""
-    return np.log(pRow)
-
-def code_5(pRow):
-    """Code 5: first difference of the natural log."""
-    return np.log(pRow).diff()
-
-def code_6(pRow):
-    """Code 6: second difference of the natural log."""
-    return np.log(pRow).diff().diff()
-
-def code_7(pRow):
-    """Code 7: first difference of the one-period growth rate x_t / x_{t-1} - 1."""
-    return (pRow / pRow.shift(1) - 1).diff()
-
-def main(pTransformations):
-    """Read the raw CSV, take each column's code from its first row (CPIAUCSL set to 5),
-    apply the matching function from pTransformations, and write the result to parquet."""
-
-    df = pd.read_csv("data/raw/fred_md.csv")
-
-    codes = df.iloc[0, 1:].astype(int)
-
-    codes["CPIAUCSL"] = 5
-
-    clean = df.iloc[1:, :]
-
-    clean["sasdate"] = pd.to_datetime(clean['sasdate'])
-    clean = clean.set_index('sasdate')
-    clean = clean.apply(pd.to_numeric, errors="coerce")
+import config
 
 
-    out = pd.DataFrame(index=clean.index)
+def transform(series, code):
+    """Apply one McCracken-Ng (2016) transformation code to a series of levels.
 
-    transformed_columns = {
-        name: pTransformations[codes[name]](clean[name])
-        for name in clean.columns
-    }
+    1 level, 2 first difference, 3 second difference, 4 log, 5 log first difference,
+    6 log second difference, 7 first difference of the one-period growth rate.
+    """
+    if code == 1:
+        return series
+    if code == 2:
+        return series.diff()
+    if code == 3:
+        return series.diff().diff()
+    if code == 4:
+        return np.log(series)
+    if code == 5:
+        return np.log(series).diff()
+    if code == 6:
+        return np.log(series).diff().diff()
+    if code == 7:
+        return series.pct_change(fill_method=None).diff()
+    raise ValueError(f"unknown transformation code {code}")
 
-    out = pd.DataFrame(transformed_columns)
+
+def load_raw(path=config.RAW_FILE):
+    """Read a FRED-MD csv. Returns (levels indexed by month, transformation code per series)."""
+    raw = pd.read_csv(path)
+    codes = raw.iloc[0, 1:].astype(int)
+    levels = raw.iloc[1:].dropna(how="all").copy()
+    levels.index = pd.to_datetime(levels.pop("sasdate"), format="%m/%d/%Y")
+    levels.index.name = "date"
+    return levels.apply(pd.to_numeric, errors="coerce"), codes
 
 
-    os.makedirs("data/processed", exist_ok=True)
-    out.to_parquet("data/processed/fred_md_transformed.parquet")
+def apply_transformations(levels, codes, overrides=None):
+    """Transform every column of `levels` with its code; `overrides` replaces codes by series name."""
+    codes = codes.copy()
+    for name, code in (overrides or {}).items():
+        codes[name] = code
+    return pd.DataFrame({name: transform(levels[name], codes[name]) for name in levels.columns})
 
-transformations = {1: code_1, 2: code_2, 4: code_4, 5: code_5, 6: code_6, 7: code_7}
+
+def main():
+    levels, codes = load_raw()
+    transformed = apply_transformations(levels, codes, config.CODE_OVERRIDES)
+    config.PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    transformed.to_parquet(config.TRANSFORMED_FILE)
+    print(f"transformed {transformed.shape[1]} series, {transformed.index[0]:%Y-%m} to {transformed.index[-1]:%Y-%m}")
+
 
 if __name__ == "__main__":
-    main(transformations)
+    main()

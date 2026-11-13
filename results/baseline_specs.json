@@ -1,0 +1,44 @@
+{
+  "VAR": {
+    "variables": [
+      "CPIAUCSL",
+      "UNRATE",
+      "INDPRO",
+      "FEDFUNDS",
+      "T10YFFM"
+    ],
+    "lag": 1,
+    "criteria": {
+      "aic": 3,
+      "bic": 1,
+      "hqic": 2,
+      "fpe": 3
+    }
+  },
+  "ARIMA": {
+    "CPIAUCSL": {
+      "order": [
+        0,
+        0,
+        2
+      ],
+      "intercept": true
+    },
+    "UNRATE": {
+      "order": [
+        5,
+        0,
+        1
+      ],
+      "intercept": false
+    },
+    "INDPRO": {
+      "order": [
+        4,
+        0,
+        0
+      ],
+      "intercept": true
+    }
+  }
+}

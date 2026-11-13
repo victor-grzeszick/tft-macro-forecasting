@@ -1,31 +1,30 @@
 #!/usr/bin/env bash
-# Re-runs the existing pipeline in dependency order. TFT models are only loaded (case_switch = 0):
-# nothing is trained, nothing is downloaded, no source file is changed.
-# Usage:  bash scripts/reproduce.sh [--toy]      (set PYTHON=/path/to/python to choose the interpreter)
-set -eu
-cd "$(dirname "$0")/.."     # repo root; every path in src/ is relative to it
-export MPLBACKEND=Agg       # plt.show() does not open windows or block
-PYTHON=${PYTHON:-python}
-
-echo "WARNING: overwrites tracked files in data/processed/ and figures/ (they match the committed ones only up to floating-point noise across platforms); restore them with: git checkout -- data/processed figures"
-
-# Stop if either TFT script has been switched to training.
-for f in src/trainer.py src/pytorchDummy.py; do
-  grep -Eq '^[[:space:]]*case_switch = 0' "$f" || { echo "ERROR: $f is not in load mode (case_switch = 0); stopping."; exit 1; }
-done
-
-run() { echo "== $1"; "$PYTHON" "src/$1"; }
-
-run build_dataset.py        # data/raw/fred_md.csv -> fred_md_transformed.parquet
-run validate.py             # ADF tests, prints only
-run data_pipeline.py        # -> X_/Y_ train/val/test parquets
-run baseline.py             # RW, ARIMA, VAR -> predictions_unalligned.pkl
-for s in align_results.py plot_baselines.py; do    # -> Baseline_Results.csv, figures/{target}_h{h}.png
-  run "$s" || echo "KNOWN FAILURE at HEAD — see REVIEW_FOR_VICTOR.md ($s, KeyError: 'TFT'); continuing with the committed outputs"
-done
-run trainer.py              # load mode; reads Baseline_Results.csv -> figures/tft_*.png + gitignored TFT results
-run dm_test.py              # needs trainer.py's predictions_unalligned_tft.pkl -> dm_test_results.parquet
-if [ "${1:-}" = "--toy" ]; then
-  run pytorchDummy.py       # optional toy demo: loads models/tft_toy.ckpt -> figures/toy_idx*.png
+# Re-runs the whole study from the raw FRED-MD file, in dependency order.
+#
+#   bash scripts/reproduce.sh            evaluate with the committed TFT checkpoints (about 1 minute)
+#   bash scripts/reproduce.sh --retrain  also repeat the hyperparameter search and retrain every TFT
+#
+# Set PYTHON=/path/to/python to choose the interpreter (default: .venv/bin/python if present, else python).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+if [ -z "${PYTHON:-}" ]; then
+  if [ -x .venv/bin/python ]; then PYTHON=.venv/bin/python; else PYTHON=python; fi
 fi
-echo "Done."
+SEEDS="42 43 44 45 46"
+
+run() { echo "== $*"; "$PYTHON" "$@"; }
+
+run -m pytest tests -q                  # unit tests on synthetic data
+run src/build_dataset.py                # raw csv -> transformed series
+run src/data_pipeline.py                # -> estimation panel, ADF tests, figures/targets.png
+run src/baselines.py                    # RW, Mean, ARIMA, VAR walk-forward forecasts
+if [ "${1:-}" = "--retrain" ]; then
+  run src/tft_train.py --tune           # grid search on UNRATE h=3 (validation loss)
+  run src/tft_train.py --seeds $SEEDS   # six models per seed
+  run src/tft_predict.py --seeds $SEEDS
+else
+  run src/tft_predict.py                # committed checkpoints (seed 42)
+fi
+run src/evaluate.py                     # RMSE, MAE, Diebold-Mariano tests
+run src/plots.py                        # figures
+echo "Done. Tables: results/summary.md"

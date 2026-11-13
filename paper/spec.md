@@ -45,3 +45,36 @@ RMSE and MAE per model × target × horizon, plus predicted-vs-actual plots. Die
 As a supplementary diagnostic, TFT variable-importance scores and temporal attention weights are reported to characterize which inputs and lags drive the forecasts.
 
 **Robustness (scope-dependent):** if time permits, the main comparison is re-run on a crisis subsample (train 1990–2007, test 2008–2010) to assess regime stability. This requires retraining all TFT models on a second split; it is the first item to defer to a 4-page note or Stage 2 if the July 5 deadline tightens.
+---
+
+## Amendments (2026-11-13, made before the test set was evaluated)
+
+The specification above is the original plan of May–June 2026 and is kept unchanged. An audit of the code
+(October 2026) found several places where the implementation differed from it. The points below record how
+each was resolved. All of them were fixed, and the corrected pipeline was committed, before any model was
+run on 2020–2024 data. `docs/report.md` describes the final design in full.
+
+1. **ARIMA look-ahead removed.** The first implementation selected and estimated ARIMA on 1990–2019 and then
+   scored it on 2018–2019. Orders are now selected on 1990–2017 only, and every forecast uses data up to its
+   origin only.
+2. **Forecast origins.** A forecast counts towards a period only if its origin is no earlier than the last
+   month before that period. The test windows therefore hold 58 (h=3) and 49 (h=12) forecasts rather than
+   "~60": targets 2020-03 to 2024-12 and 2020-12 to 2024-12.
+3. **Historical-mean benchmark added.** All targets are stationary growth rates or changes, for which the
+   unconditional mean is the natural "no predictability" benchmark; a random walk in a growth rate is a weak
+   one. The random walk is retained as specified.
+4. **VAR lag length** is now selected in code (BIC, maximum 12 lags, training sample); it remains 1.
+5. **TFT tuning.** The "random search over hidden size, dropout, learning rate and attention heads" was
+   replaced by a 12-point grid over hidden size {8, 16, 32}, dropout {0.1, 0.2} and learning rate
+   {0.01, 0.03}, run once on UNRATE h=3 and applied to all six models. Attention heads are fixed at 4.
+6. **TFT checkpoints** now hold the weights of the best validation epoch (previously the last epoch), and
+   the quantile loss uses the specified quantiles 0.1/0.5/0.9 (previously the library's seven defaults).
+7. **Decoder input.** The absolute time index was replaced by the position relative to the forecast origin,
+   so that the model is never asked to extrapolate a trend variable beyond its training range.
+8. **Predictor filter and ADF tests** use the training sample only.
+9. **Diebold-Mariano test.** Reported with the Harvey-Leybourne-Newbold small-sample correction and p-values,
+   for the TFT against every benchmark (the baseline with the lowest validation RMSE is marked).
+10. **Additional robustness checks**, decided before the test run: (i) benchmarks with parameters frozen at
+    the end of the training sample, which mirrors the TFT's frozen weights; (ii) five random seeds for the
+    TFT and their ensemble; (iii) the test period without 2020. The crisis subsample (2008–2010) of the
+    original plan was not carried out.
