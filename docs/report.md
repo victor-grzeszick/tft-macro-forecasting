@@ -4,7 +4,16 @@
 
 ## Abstract
 
-ABSTRACT_PLACEHOLDER
+I compare a Temporal Fusion Transformer (TFT), a deep-learning model for time series, with a random walk, a
+historical-mean forecast, ARIMA and a vector autoregression for forecasting US CPI inflation, the change
+in the unemployment rate and industrial-production growth three and twelve months ahead. Models are fitted
+on FRED-MD data for 1990–2017, tuned on 2018–2019 and evaluated once, walk-forward, on 2020–2024. The TFT
+is not significantly more accurate than a random walk for any target or horizon and never improves on the
+historical mean. For inflation twelve months ahead, ARIMA is significantly more accurate than the TFT
+(Diebold-Mariano p = 0.011). The TFT's variable-selection weights change with the random seed and cannot
+be interpreted. The findings are consistent with the view that these series are close to unforecastable
+at such horizons, and that with about 300 training observations a large model has nothing to learn that
+a constant does not already capture.
 
 ## 1. Introduction
 
@@ -58,7 +67,11 @@ VAR (Table 1), although only at the 5% level for the term spread.
 
 | Series | ADF statistic | p-value |
 |---|---|---|
-ADF_ROWS
+| CPIAUCSL (Δ log) | −6.04 | < 0.001 |
+| UNRATE (Δ) | −3.62 | 0.005 |
+| INDPRO (Δ log) | −4.93 | < 0.001 |
+| FEDFUNDS (Δ) | −4.56 | < 0.001 |
+| T10YFFM (level) | −2.87 | 0.048 |
 
 ### 2.3 Sample
 
@@ -103,7 +116,9 @@ Data are final revised values, not the real-time vintages a forecaster would hav
   federal-funds term spread) is regressed on *p* lags of all five. The lag length is chosen by BIC on the
   training sample.
 
-Selected specifications (`results/baseline_specs.json`): BASELINE_SPECS
+Selected specifications (`results/baseline_specs.json`): ARMA(0, 2) with constant for CPIAUCSL,
+ARMA(5, 1) without constant for UNRATE, AR(4) with constant for INDPRO, and a VAR(1) (BIC selects one lag;
+AIC three).
 
 Orders and lag length are fixed after the training sample. The parameters of ARIMA and VAR are re-estimated
 at every origin on all data up to that origin (expanding window), which is standard practice in
@@ -137,7 +152,9 @@ produces all validation and test forecasts.
 
 **Tuning.** Hidden size {8, 16, 32}, dropout {0.1, 0.2} and learning rate {0.01, 0.03} were searched in a
 12-point grid on one model (UNRATE, *h* = 3), and the configuration with the lowest validation loss was
-applied to all six models. TUNING_SENTENCE
+applied to all six models. The selected configuration is hidden size 16, dropout 0.2 and
+learning rate 0.03 (about 102,000 parameters). Validation loss varied by only 3% across the grid
+(`results/tuning_grid.csv`), so the data do not clearly favour any configuration.
 
 ### 3.4 Evaluation
 
@@ -157,4 +174,253 @@ the end of the training sample, which is the like-for-like comparison with the T
 four further random seeds for the TFT and the average (ensemble) of all five; (iii) the test period
 without 2020.
 
-RESULTS_PLACEHOLDER
+## 4. Results
+
+### 4.1 Validation period (2018–2019)
+
+Table 2 reports validation RMSE relative to the random walk. These numbers were used for early stopping,
+tuning and choosing the best baseline, so they are optimistic and serve only as a plausibility check. All
+models other than the random walk are within a few percent of each other, and none improves clearly on
+the historical mean.
+
+**Table 2. Validation RMSE relative to the random walk** (`results/metrics.csv`)
+
+| Target | h | n | RW RMSE | Mean | ARIMA | VAR | TFT |
+|---|---|---|---|---|---|---|---|
+| CPIAUCSL | 3 | 22 | 0.00226 | 0.618 | 0.620 | 0.667 | 0.626 |
+| CPIAUCSL | 12 | 13 | 0.00229 | 0.652 | 0.653 | 0.653 | 0.642 |
+| UNRATE | 3 | 22 | 0.173 | 0.635 | 0.674 | 0.646 | 0.638 |
+| UNRATE | 12 | 13 | 0.164 | 0.582 | 0.579 | 0.580 | 0.579 |
+| INDPRO | 3 | 22 | 0.00627 | 0.882 | 0.832 | 0.854 | 0.852 |
+| INDPRO | 12 | 13 | 0.00738 | 0.744 | 0.755 | 0.717 | 0.639 |
+
+Training gave an early warning. The validation loss reached its minimum after only 4 to 13 epochs in five
+of the six models (34 in the sixth) and then rose, which suggests that the network found little
+generalisable signal before it began to fit noise.
+
+### 4.2 Test period (2020–2024)
+
+**Table 3. Test RMSE relative to the random walk** (`results/metrics.csv`; lowest value per row in bold)
+
+| Target | h | n | RW RMSE | Mean | ARIMA | VAR | TFT |
+|---|---|---|---|---|---|---|---|
+| CPIAUCSL | 3 | 58 | 0.00406 | 0.894 | 0.893 | **0.880** | 0.914 |
+| CPIAUCSL | 12 | 49 | 0.00470 | 0.750 | **0.749** | 0.892 | 0.885 |
+| UNRATE | 3 | 58 | 2.093 | **0.696** | 0.945 | 1.033 | 0.759 |
+| UNRATE | 12 | 49 | 1.570 | **0.111** | 0.207 | 2.521 | 0.534 |
+| INDPRO | 3 | 58 | 0.0358 | **0.650** | 0.758 | 1.174 | 0.663 |
+| INDPRO | 12 | 49 | 0.0274 | **0.321** | 0.363 | 2.926 | 0.528 |
+
+Three observations stand out.
+
+*The TFT does not improve on the simple benchmarks.* Its RMSE is below that of the random walk in all six
+cases, but it is never the most accurate model, and in every case the historical mean is more accurate.
+
+*The historical mean is the hardest benchmark to beat.* It has the lowest RMSE in four of six cases and
+is within 2% of the best model in the other two. A constant forecast is thus at least as good as any model
+here: at horizons of three months and more, the month-to-month movements of these series were essentially
+unpredictable from the information used.
+
+*The random walk is a weak benchmark for growth rates.* If a series fluctuates unpredictably around a
+constant mean with variance σ², the mean forecast has error variance σ², whereas the random walk forecast
+y(t) has error variance 2σ², because it adds the noise of the last observation to the noise of the outcome.
+Its RMSE is then √2 times larger, so a ratio of about 0.71 against the random walk reflects no forecasting
+skill at all. Beating the random walk, as all models do, is therefore not evidence of predictive ability.
+
+The very large and very small ratios for unemployment and industrial production are caused by the COVID-19
+shock. In April 2020 the unemployment rate rose by 10.4 percentage points in one month, about sixty times
+its validation-period RMSE. Any model that carries this observation forward performs badly: the random
+walk repeats it three and twelve months later, and the re-estimated VAR extrapolates it (Section 4.4).
+
+### 4.3 Statistical significance
+
+**Table 4. Diebold-Mariano tests of the TFT against each benchmark, test period** (`results/dm_tests.csv`)
+
+HLN-corrected statistic with two-sided p-value in parentheses. Negative values: the TFT has the lower
+squared error. † marks the classical baseline with the lowest validation RMSE, the comparison named in the
+specification. \*\* p < 0.05.
+
+| Target | h | n | vs RW | vs Mean | vs ARIMA | vs VAR |
+|---|---|---|---|---|---|---|
+| CPIAUCSL | 3 | 58 | −0.52 (0.607) | 0.29 (0.772) | 0.31 (0.758)† | 0.56 (0.579) |
+| CPIAUCSL | 12 | 49 | −0.63 (0.532) | 2.60\*\* (0.012) | 2.64\*\* (0.011) | −0.05 (0.963)† |
+| UNRATE | 3 | 58 | −0.90 (0.374) | 2.14\*\* (0.037) | −0.85 (0.398) | −0.89 (0.378)† |
+| UNRATE | 12 | 49 | −0.71 (0.479) | 1.46 (0.152) | 1.45 (0.153)† | −0.85 (0.398) |
+| INDPRO | 3 | 58 | −1.09 (0.282) | 0.74 (0.461) | −0.97 (0.337)† | −1.01 (0.319) |
+| INDPRO | 12 | 49 | −0.87 (0.389) | 1.21 (0.231) | 1.22 (0.227) | −0.87 (0.389)† |
+
+- **The TFT is not significantly more accurate than the random walk** for any target or horizon
+  (p between 0.28 and 0.61), nor than any other benchmark.
+- **ARIMA is significantly more accurate than the TFT for inflation twelve months ahead** (DM = 2.64,
+  p = 0.011), as is the historical mean (p = 0.012). The TFT's RMSE is 18% higher than ARIMA's in this case.
+- Against the baseline that was pre-selected on validation data (†), no difference is significant.
+
+Two cautions apply. First, Table 4 contains 24 tests. At the 5% level one or two rejections would be
+expected by chance alone, and none of the three rejections would survive a Bonferroni correction
+(0.05 / 24 ≈ 0.002). The inflation result is, however, stable across the robustness checks below. Second,
+large RMSE differences for unemployment and industrial production are *not* significant, because they come
+from a handful of extreme months: the DM test recognises that a difference driven by very few observations
+is weak evidence.
+
+### 4.4 Robustness
+
+**Frozen benchmarks.** The TFT's weights are fixed after 2017, while ARIMA and VAR are re-estimated every
+month. Table 5 repeats the comparison with benchmark parameters frozen at the end of 2017.
+
+**Table 5. Test RMSE relative to the random walk: re-estimated and frozen benchmarks**
+
+| Target | h | ARIMA | ARIMA frozen | VAR | VAR frozen | TFT |
+|---|---|---|---|---|---|---|
+| CPIAUCSL | 3 | 0.893 | 0.900 | 0.880 | 0.891 | 0.914 |
+| CPIAUCSL | 12 | 0.749 | 0.747 | 0.892 | 0.746 | 0.885 |
+| UNRATE | 3 | 0.945 | 0.740 | 1.033 | 0.699 | 0.759 |
+| UNRATE | 12 | 0.207 | 0.161 | 2.521 | 0.112 | 0.534 |
+| INDPRO | 3 | 0.758 | 0.721 | 1.174 | 0.679 | 0.663 |
+| INDPRO | 12 | 0.363 | 0.337 | 2.926 | 0.318 | 0.528 |
+
+Freezing does not help the TFT's case; it helps the benchmarks. The re-estimated VAR is the worst model at
+*h* = 12 because the 2020 observations distort its coefficients: a few months that are tens of standard
+deviations from the mean dominate a least-squares fit. With frozen coefficients the VAR is as accurate as
+the historical mean. This is the problem analysed by Lenza and Primiceri (2022). The frozen ARIMA and VAR
+are both significantly more accurate than the TFT for inflation at *h* = 12 (p = 0.009 and 0.007).
+
+**Random seeds.** Neural-network training depends on the random initialisation. Table 6 shows the range of
+the TFT's relative RMSE over five seeds and the RMSE of the averaged (ensemble) forecast.
+
+**Table 6. TFT test RMSE relative to the random walk across five seeds** (`results/seed_robustness.csv`)
+
+| Target | h | Seed 42 | Minimum | Median | Maximum | Ensemble |
+|---|---|---|---|---|---|---|
+| CPIAUCSL | 3 | 0.914 | 0.914 | 0.916 | 0.923 | 0.917 |
+| CPIAUCSL | 12 | 0.885 | 0.871 | 0.884 | 0.893 | 0.882 |
+| UNRATE | 3 | 0.759 | 0.705 | 0.759 | 0.946 | 0.764 |
+| UNRATE | 12 | 0.534 | 0.172 | 0.394 | 0.534 | 0.358 |
+| INDPRO | 3 | 0.663 | 0.663 | 0.698 | 0.719 | 0.685 |
+| INDPRO | 12 | 0.528 | 0.345 | 0.438 | 0.528 | 0.411 |
+
+Inflation results barely depend on the seed. For unemployment and industrial production the spread is
+wide, and the pre-specified seed 42 happens to be the worst of five at *h* = 12. Even the best seed in each
+row, however, does not beat the historical mean (Table 3), and the ensemble remains significantly less
+accurate than ARIMA for inflation at *h* = 12 (p = 0.031). The conclusions do not depend on the seed.
+
+**Excluding 2020.** Dropping targets dated 2020 removes ten forecasts at *h* = 3 but only one at
+*h* = 12 (whose test window starts in December 2020), so this check is informative only for *h* = 3
+(n = 48, `results/metrics.csv`, period `test_ex2020`). Two results change. For inflation, the random walk
+becomes the most accurate model (all others have relative RMSE between 1.03 and 1.11): during the
+2021–2023 inflation surge, "inflation stays where it is" was a better forecast than "inflation returns to
+its mean". For unemployment, the TFT becomes significantly *less* accurate than every benchmark (relative
+RMSE 2.34; p between 0.026 and 0.040), for the reason discussed next.
+
+### 4.5 What the TFT learned
+
+**Sensitivity to outliers in the encoder window.** Figure 2 shows that after April 2020 the TFT's
+unemployment and industrial-production forecasts are shifted away from the data and its intervals become
+very wide, and that this lasts for about 24 months at *h* = 3. That is the length of the encoder window.
+The model standardises the target using the mean and standard deviation of that window, so one extreme
+month inflates the scale of every forecast until it drops out of the window. ARIMA recovers within a few
+months.
+
+**Forecast intervals.** The 10–90% interval should contain 80% of outcomes. On the test period it contains
+84–92% for unemployment and industrial production (too wide, for the reason above) and 67% for inflation
+(too narrow: the 2021–2022 surge lay outside anything in the training data).
+
+**Variable importance.** In several models the selection network puts almost all weight on one input
+(Figure 4), for example 96% on a Treasury spread for unemployment at *h* = 3. These weights are not
+stable: across the five seeds the top-ranked variable differs in almost every case (`results/
+variable_importance.csv`); for inflation at *h* = 3 the five seeds choose housing starts in the West,
+final-products output, total housing starts, the oil price and non-borrowed reserves. A model that
+forecasts close to the mean can do so from almost any input, so the selected variable carries no economic
+meaning. The interpretability that the TFT offers is only as good as the signal it has found.
+
+**Attention.** Average attention weights are close to uniform over the 24 months (between 0.036 and 0.059
+against 1/24 ≈ 0.042, apart from one model), so the model did not learn to focus on particular lags.
+
+![Relative RMSE](../figures/relative_rmse.png)
+*Figure 1. Test RMSE relative to the random walk.*
+
+![Test forecasts](../figures/forecasts_test.png)
+*Figure 2. Forecasts and realised values, test period. Axes are cut off at extreme values.*
+
+![Targets](../figures/targets.png)
+*Figure 3. The three transformed targets, 1990–2024.*
+
+![Variable importance](../figures/variable_importance.png)
+*Figure 4. TFT variable-selection weights (seed 42).*
+
+## 5. Discussion
+
+The TFT did not forecast better than models with a handful of parameters. Three reasons seem most likely.
+
+1. **There is little to predict.** If no model beats the historical mean, the limiting factor is the data,
+   not the method. This is in line with Stock and Watson (2007): changes in inflation, and here also
+   monthly changes in unemployment and output, are close to unforecastable at these horizons. A flexible
+   model cannot extract a signal that is not there.
+2. **Too few observations for the model's size.** The TFT has about 102,000 parameters and is trained on
+   310 overlapping samples from 336 months; the VAR(1) has 30 coefficients. With so little data a flexible
+   model fits noise, which is why the validation loss turned up after a few epochs and why different
+   seeds select different variables.
+3. **A structural break in the test period.** All models were fitted on 1990–2019, a period of low and
+   stable inflation. The pandemic and the subsequent inflation surge were unlike anything in that sample.
+   Models reacted in different ways: re-estimated linear models were distorted by the outliers, the TFT
+   by its normalisation window, and constant forecasts were unaffected by the shock but missed the surge.
+
+A methodological lesson is that the choice of benchmark and of evaluation design decides the conclusion.
+Measured against the random walk alone, every model "works". Measured against the historical mean, none
+does. And an earlier version of this project, in which ARIMA had accidentally been fitted on the validation
+data it was then scored on, biased the validation comparison in ARIMA's favour. Making the comparison
+fair required more care than building the model.
+
+## 6. Limitations
+
+- **Revised data.** FRED-MD contains today's revised values. A real-time forecaster would have had earlier,
+  noisier figures, and some series are published with a delay. The exercise is a pseudo-out-of-sample
+  comparison, not a real-time one; this affects all models, but not necessarily equally.
+- **One test period, dominated by one event.** Results for unemployment and industrial production are
+  driven by a few months in 2020. With 49–58 overlapping forecasts the DM test has low power, so "not
+  significant" must not be read as "equally good".
+- **Multiple comparisons.** Many tests are reported; individual p-values near 0.01–0.05 are suggestive,
+  not conclusive.
+- **Small validation set.** Early stopping and tuning rely on 22 (*h* = 3) or 13 (*h* = 12) validation
+  forecasts. The validation loss differed by only 3% across the whole tuning grid, so the selected
+  configuration is close to arbitrary. The grid was small and was run on one target only.
+- **Target definition.** The target is the monthly rate *h* months ahead. The average rate over the next
+  *h* months, which is common in the literature, is smoother and may be more predictable.
+- **TFT configuration.** The TFT was not re-trained during the test period, used no known future inputs
+  (such as calendar variables), and standardised the target within the encoder window, which proved
+  fragile. A different normalisation or outlier treatment might change its post-2020 performance.
+- **Scope.** One country, one data vintage, three targets, two horizons, one neural architecture. The
+  crisis subsample (2008–2010) planned in the specification was not carried out.
+
+## 7. Conclusion
+
+On US monthly data from FRED-MD, a Temporal Fusion Transformer with access to 125 predictors did not
+produce more accurate 3- and 12-month-ahead forecasts of inflation, unemployment changes or
+industrial-production growth than simple benchmarks over 2020–2024. It was not significantly better than
+a random walk in any case, was never better than the historical mean, and was significantly worse than
+ARIMA for inflation twelve months ahead. Its variable-selection weights were not stable enough to
+interpret. The result says less about the architecture than about the problem: with a few hundred
+observations and series that are close to unpredictable, model complexity has nothing to work with, and a
+fair evaluation matters more than the choice of model.
+
+## Reproducibility
+
+All numbers in this report are in `results/` and are produced by `bash scripts/reproduce.sh` from the
+committed raw data and model checkpoints. The pipeline, including this evaluation design, was committed
+(`77d8e56`) before any model was run on 2020–2024 data; the test evaluation was then run once.
+`paper/spec.md` records the original specification and every deviation from it.
+
+## Acknowledgement
+
+The research question, the choice of data, targets and models, and the original implementation are my own.
+An AI assistant (Claude) was used to audit the code, rewrite the pipeline, add the robustness checks and
+unit tests, run the final evaluation and draft this report.
+
+## References
+
+- Atkeson, A., & Ohanian, L. E. (2001). Are Phillips curves useful for forecasting inflation? *Federal Reserve Bank of Minneapolis Quarterly Review*, 25(1), 2–11.
+- Diebold, F. X., & Mariano, R. S. (1995). Comparing predictive accuracy. *Journal of Business & Economic Statistics*, 13(3), 253–263.
+- Harvey, D., Leybourne, S., & Newbold, P. (1997). Testing the equality of prediction mean squared errors. *International Journal of Forecasting*, 13(2), 281–291.
+- Lenza, M., & Primiceri, G. E. (2022). How to estimate a vector autoregression after March 2020. *Journal of Applied Econometrics*, 37(4), 688–699.
+- Lim, B., Arık, S. Ö., Loeff, N., & Pfister, T. (2021). Temporal Fusion Transformers for interpretable multi-horizon time series forecasting. *International Journal of Forecasting*, 37(4), 1748–1764.
+- McCracken, M. W., & Ng, S. (2016). FRED-MD: A monthly database for macroeconomic research. *Journal of Business & Economic Statistics*, 34(4), 574–589.
+- Stock, J. H., & Watson, M. W. (2007). Why has U.S. inflation become harder to forecast? *Journal of Money, Credit and Banking*, 39(s1), 3–33.

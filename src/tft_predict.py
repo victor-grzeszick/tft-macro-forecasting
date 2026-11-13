@@ -57,17 +57,23 @@ def main(until, seeds):
                 train_ds = training_dataset(train_panel, target, horizon)
                 eval_ds = evaluation_dataset(train_ds, panel, first_origin(panel.index))
                 forecasts.append(forecast(model, eval_ds, panel.index, target, horizon, label))
-                if seed == config.SEED:
-                    importance, attention = interpret(model, eval_ds)
-                    top = importance.sort_values(ascending=False).head(10)
-                    importances.append(pd.DataFrame({"target": target, "horizon": horizon, "rank": range(1, 11),
-                                                     "variable": top.index, "weight": top.to_numpy()}))
-                    attentions.append(pd.DataFrame({"target": target, "horizon": horizon,
-                                                    "lag": attention.index, "attention": attention.to_numpy()}))
-    pd.concat(forecasts).to_csv(config.RESULTS_DIR / "forecasts_tft.csv", index=False, date_format="%Y-%m-%d")
-    pd.concat(importances).to_csv(config.RESULTS_DIR / "variable_importance.csv", index=False, float_format="%.6f")
-    pd.concat(attentions).to_csv(config.RESULTS_DIR / "attention.csv", index=False, float_format="%.6f")
-    print(f"{sum(map(len, forecasts))} TFT forecasts written")
+                importance, attention = interpret(model, eval_ds)
+                top = importance.sort_values(ascending=False).head(10)
+                importances.append(pd.DataFrame({"target": target, "horizon": horizon, "seed": seed, "rank": range(1, 11),
+                                                 "variable": top.index, "weight": top.to_numpy()}))
+                attentions.append(pd.DataFrame({"target": target, "horizon": horizon, "seed": seed,
+                                                "lag": attention.index, "attention": attention.to_numpy()}))
+    forecasts = pd.concat(forecasts).assign(seed=lambda f: f["model"].str.extract(r"seed(\d+)")[0].fillna(config.SEED).astype(int))
+    outputs = {"forecasts_tft.csv": (forecasts, "%.8g"), "variable_importance.csv": (pd.concat(importances), "%.6f"),
+               "attention.csv": (pd.concat(attentions), "%.6f")}
+    for name, (table, number_format) in outputs.items():
+        path = config.RESULTS_DIR / name
+        if path.exists():  # keep the stored results of seeds that were not recomputed in this run
+            old = pd.read_csv(path, parse_dates=[c for c in ("origin", "date") if c in table.columns])
+            table = pd.concat([old[~old["seed"].isin(seeds)], table], ignore_index=True)
+        table = table.sort_values(["seed", "target", "horizon"], kind="stable")
+        table.to_csv(path, index=False, date_format="%Y-%m-%d", float_format=number_format)
+    print(f"{len(forecasts)} TFT forecasts written for seeds {seeds}")
 
 
 if __name__ == "__main__":

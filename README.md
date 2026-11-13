@@ -12,7 +12,25 @@ Models are fitted on 1990–2017, tuned on 2018–2019 and evaluated once on 202
 
 ## Result
 
-RESULT_PLACEHOLDER
+Test period 2020–2024, RMSE relative to the random walk (below 1 is better than the random walk):
+
+| Target | h | Mean | ARIMA | VAR | TFT |
+|---|---|---|---|---|---|
+| CPI inflation | 3 | 0.894 | 0.893 | 0.880 | 0.914 |
+| CPI inflation | 12 | 0.750 | 0.749 | 0.892 | 0.885 |
+| Unemployment (Δ) | 3 | 0.696 | 0.945 | 1.033 | 0.759 |
+| Unemployment (Δ) | 12 | 0.111 | 0.207 | 2.521 | 0.534 |
+| Industrial production | 3 | 0.650 | 0.758 | 1.174 | 0.663 |
+| Industrial production | 12 | 0.321 | 0.363 | 2.926 | 0.528 |
+
+- The TFT is **not significantly more accurate than a random walk** for any target or horizon
+  (Diebold-Mariano p between 0.28 and 0.61) and never beats the historical mean.
+- For inflation twelve months ahead, **ARIMA is significantly more accurate than the TFT** (p = 0.011).
+- The historical mean is the best or near-best forecast everywhere: at these horizons the series were
+  essentially unpredictable, so a model with 102,000 parameters had nothing to add.
+- Unemployment and industrial-production results are dominated by the COVID-19 shock of 2020.
+
+![Relative RMSE](figures/relative_rmse.png)
 
 ## Repository layout
 

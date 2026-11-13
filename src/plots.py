@@ -44,10 +44,12 @@ def plot_forecasts(forecasts, period):
         ax.fill_between(tft.index, tft["q10"], tft["q90"], color=COLOURS["TFT"], alpha=0.15, lw=0, label="TFT 10-90%")
         for model in ["ARIMA", "VAR", "TFT"]:
             ax.plot(wide.index, wide[model], color=COLOURS[model], lw=1, label=model)
+        low, high = tft["actual"].quantile([0.05, 0.95])
+        ax.set_ylim(low - (high - low), high + (high - low))  # keeps the panel readable when there are extreme months
         ax.set_title(f"{target}, h = {horizon}")
         ax.tick_params(axis="x", labelrotation=30)
     cells[0][0].legend(fontsize=8, ncol=2)
-    fig.suptitle(f"Forecasts and realised values, {period} period (transformed units)")
+    fig.suptitle(f"Forecasts and realised values, {period} period (transformed units; extreme values are cut off)")
     save(fig, f"forecasts_{period}.png")
 
 
@@ -97,8 +99,9 @@ def main(until):
     for period in ["val", "test"][: 1 if until == "val" else 2]:
         plot_forecasts(forecasts, period)
     plot_relative_rmse(metrics, until)
-    plot_importance(pd.read_csv(config.RESULTS_DIR / "variable_importance.csv"))
-    plot_attention(pd.read_csv(config.RESULTS_DIR / "attention.csv"))
+    for name, plot in [("variable_importance.csv", plot_importance), ("attention.csv", plot_attention)]:
+        table = pd.read_csv(config.RESULTS_DIR / name)
+        plot(table[table["seed"] == config.SEED])
 
 
 if __name__ == "__main__":
