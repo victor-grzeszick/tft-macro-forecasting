@@ -1,5 +1,12 @@
 # tft-macro-forecasting
 
+**In short.** This project tested whether a modern deep-learning model, the Temporal Fusion Transformer,
+can forecast US inflation, unemployment and industrial production three and twelve months ahead more
+accurately than simple statistical methods. It never beat simply forecasting the historical average, and
+it was not significantly more accurate than a random walk, which just repeats the latest value. The main
+reason found is that the trained networks largely ignored their 125 input series and behaved much like an
+average of the previous two years.
+
 Does a deep-learning forecaster beat simple econometric benchmarks on US macroeconomic data?
 
 This project compares a Temporal Fusion Transformer (TFT; Lim et al., 2021) with a random walk, a
@@ -8,7 +15,7 @@ the unemployment rate and industrial production, using the FRED-MD database (McC
 Models are fitted on 1990–2017, tuned on 2018–2019 and evaluated once on 2020–2024.
 
 **Author:** Victor Grzeszick, Felix-Hausdorff-Gymnasium Bonn.
-**Full write-up:** [`docs/report.md`](docs/report.md).
+**Full write-up:** [`docs/report.md`](docs/report.md) (also as [PDF](docs/report.pdf)).
 
 ## Result
 
@@ -54,9 +61,9 @@ Test period 2020–2024, RMSE relative to the random walk (below 1 is better tha
 | `results/` | every number in the report, as CSV; `results/summary.md` holds the main tables |
 | `models/` | trained TFT checkpoints (seed 42) |
 | `figures/` | figures used in the report |
-| `docs/report.md` | the report |
+| `docs/report.md`, `docs/report.pdf` | the report, as Markdown and as PDF |
 | `paper/spec.md` | the original specification and its dated amendments |
-| `notes/` | lab notes and reading notes from the working process (historical) |
+| `notes/` | lab notes, reading notes and topic cheatsheets (`notes/cheatsheets/`) from the working process (historical) |
 
 ## Reproducing the results
 
@@ -95,3 +102,8 @@ this is visible in the commit history.
 - Lim, B., Arık, S. Ö., Loeff, N., & Pfister, T. (2021). Temporal Fusion Transformers for interpretable multi-horizon time series forecasting. *International Journal of Forecasting*, 37(4), 1748–1764.
 - McCracken, M. W., & Ng, S. (2016). FRED-MD: A monthly database for macroeconomic research. *Journal of Business & Economic Statistics*, 34(4), 574–589.
 - Stock, J. H., & Watson, M. W. (2007). Why has U.S. inflation become harder to forecast? *Journal of Money, Credit and Banking*, 39(s1), 3–33.
+
+## Licence
+
+The code in this repository is released under the MIT licence (see [`LICENSE`](LICENSE)). The FRED-MD data
+in `data/` remain subject to the Federal Reserve Bank of St. Louis's terms of use.
